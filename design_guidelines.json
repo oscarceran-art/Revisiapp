@@ -1,0 +1,114 @@
+{
+  "theme": "light",
+  "archetype": "Archetype 4 (Swiss/Editorial High-Contrast Variant)",
+  "global_rules": {
+    "philosophy": "A minimalist, editorial digital notebook. Zero AI-slop gradients. High structural contrast using generous whitespace and 1px borders.",
+    "anti_patterns": [
+      "No top navigation bar allowed. Sidebar only.",
+      "No rounded, mushy drop shadows.",
+      "No purple or teal gradients.",
+      "No centered text alignments by default (use left-aligned for editorial rigor)."
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "primary": "Fraunces, serif",
+      "body": "Fraunces, serif"
+    },
+    "google_fonts_url": "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap",
+    "hierarchy": {
+      "h1": "text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-black",
+      "h2": "text-2xl md:text-3xl lg:text-4xl font-medium tracking-tight text-black",
+      "h3": "text-xl md:text-2xl font-medium tracking-tight text-black",
+      "body": "text-base font-light text-black/80 leading-relaxed",
+      "label": "text-xs font-semibold uppercase tracking-[0.15em] text-black/60",
+      "button": "text-sm font-medium tracking-wide"
+    }
+  },
+  "colors": {
+    "background": {
+      "app": "bg-white",
+      "sidebar": "bg-[#FCFCFC] border-r border-black/10",
+      "surface": "bg-white",
+      "surface_hover": "hover:bg-black/5",
+      "input": "bg-white border-black/10 focus:border-black focus:ring-1 focus:ring-black"
+    },
+    "text": {
+      "primary": "text-black",
+      "secondary": "text-black/60",
+      "tertiary": "text-black/40",
+      "inverse": "text-white"
+    },
+    "border": {
+      "default": "border-black/10",
+      "focus": "border-black",
+      "active": "border-black/30"
+    },
+    "accent": {
+      "primary": "bg-black text-white hover:bg-black/80",
+      "secondary": "bg-black/5 text-black hover:bg-black/10"
+    }
+  },
+  "spacing_and_layout": {
+    "sidebar": "Fixed width w-64, h-screen, border-r border-black/10. Mobile: hidden behind hamburger menu, or sheet modal.",
+    "main_content": "min-h-screen md:ml-64 p-6 md:p-12",
+    "container": "max-w-5xl mx-auto w-full",
+    "bento_spacing": "gap-6 md:gap-8",
+    "padding_scale": "Use p-6 or p-8 for cards. Use p-12 for the worksheet view to feel like A4 paper.",
+    "alignment": "Left-align primarily. Symmetrical balance through whitespace."
+  },
+  "surfaces_and_components": {
+    "cards": "bg-white border border-black/10 rounded-xl shadow-none transition-colors hover:border-black/30",
+    "buttons": {
+      "primary": "bg-black text-white rounded-lg px-6 py-2.5 transition-transform active:scale-95",
+      "outline": "bg-transparent border border-black/20 text-black rounded-lg px-6 py-2.5 hover:bg-black/5 transition-colors",
+      "ghost": "bg-transparent text-black/70 hover:text-black hover:bg-black/5 rounded-lg px-4 py-2 transition-colors"
+    },
+    "inputs": "rounded-lg border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:border-black focus:outline-none focus:ring-1 focus:ring-black",
+    "chat_bubbles": {
+      "user": "bg-black text-white rounded-2xl rounded-tr-sm p-4 max-w-[85%]",
+      "ai": "bg-white border border-black/10 text-black rounded-2xl rounded-tl-sm p-4 max-w-[85%]"
+    },
+    "worksheet_paper": "bg-white border border-black/10 rounded-none md:rounded-sm shadow-[0_0_40px_rgba(0,0,0,0.03)] p-8 md:p-16 max-w-4xl mx-auto my-8",
+    "radius": "General UI (buttons, inputs) uses rounded-lg. Cards use rounded-xl. Worksheet uses rounded-sm (paper aesthetic)."
+  },
+  "motion": {
+    "hover": "Subtle background shifts (bg-black/5) or border darkening. Instant or 150ms ease.",
+    "page_transition": "Fade in with slight upward motion (translate-y-2 opacity-0 to translate-y-0 opacity-100).",
+    "microinteractions": "Buttons scale down slightly (scale-95) on active. No bouncy physics."
+  },
+  "assets_and_media": {
+    "icons_library": "@phosphor-icons/react",
+    "images": {
+      "empty_state_subjects": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/e37c393c-bd48-47ef-8925-bef4dd8ecda1/images/b3fefbe3dd26d3bb2e22c1ad33f030230432d94f6ece959f136b927794d52a26.png",
+        "description": "Minimalist 3D clay style illustration of a single book and a pencil, pure white and black, for Subjects empty state."
+      },
+      "empty_state_chat": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/e37c393c-bd48-47ef-8925-bef4dd8ecda1/images/9d2f66fd729420ae7714e5bf483a64fb0da23e173832a8f0d9d506d4e7d476a6.png",
+        "description": "Minimalist editorial line art illustration of an empty desk with a single notebook, for Chat empty state."
+      },
+      "empty_state_worksheet": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/e37c393c-bd48-47ef-8925-bef4dd8ecda1/images/9cf80c85a9fc9ffd413d38ac272468d698a24da6cccc0ba14b54c22b466cc727.png",
+        "description": "Minimalist abstract illustration of floating paper sheets, completely black and white, for Worksheet generation empty state."
+      }
+    }
+  },
+  "testing_attributes": {
+    "required": true,
+    "convention": "data-testid='kebab-case-role'",
+    "examples": [
+      "data-testid='sidebar-nav-chat'",
+      "data-testid='chat-input-field'",
+      "data-testid='generate-worksheet-btn'"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Inject the Google Fonts URL for Fraunces into index.html and apply to tailwind.config.js for BOTH sans and serif.",
+    "Do not build a top header. The layout must use a persistent left sidebar on desktop and a mobile-drawer sidebar on mobile.",
+    "Use Phosphor icons. e.g. <ChatCircle weight='light' />",
+    "For the 'Worksheet Viewer', create a literal 'paper' wrapper container inside the app. Add PDF export via a print stylesheet or html2canvas/jspdf.",
+    "Keep Shadcn components minimal. Strip out default shadow classes and replace with border-black/10.",
+    "Ensure the Fraunces font is actually legible at small sizes by using font-light or font-medium and slightly elevated line-height."
+  ]
+}
