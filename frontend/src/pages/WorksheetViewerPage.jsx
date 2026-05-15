@@ -176,7 +176,13 @@ export default function WorksheetViewerPage() {
             <div className="grid md:grid-cols-2 gap-8">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-3">Instructions</div>
-                <p className="text-[15px] leading-relaxed text-black/85">{ws.instructions}</p>
+                <ul className="text-[15px] leading-relaxed text-black/85 space-y-1.5 list-disc pl-5">
+                  {(ws.instructions || "")
+                    .split(/(?:•|\n|\.\s+(?=[A-Z]))/)
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .map((line, i) => <li key={i}>{line.replace(/\.$/, "")}.</li>)}
+                </ul>
               </div>
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-3">Information</div>

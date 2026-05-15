@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from anthropic import AsyncAnthropic
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 
@@ -27,6 +28,7 @@ db = client[os.environ['DB_NAME']]
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -336,14 +338,20 @@ async def send_message(payload: ChatSendRequest):
         await db.chat_sessions.update_one({"id": payload.session_id}, {"$set": {"title": title}})
 
     system_message = build_system_message(subject)
-    chat = LlmChat(
-        api_key=ANTHROPIC_API_KEY,
-        session_id=payload.session_id,
-        system_message=system_message,
-    ).with_model("anthropic", CLAUDE_MODEL)
+    # Load full message history for proper multi-turn context
+    history_docs = await db.chat_messages.find(
+        {"session_id": payload.session_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(2000)
+    messages = [{"role": m['role'], "content": m['content']} for m in history_docs]
 
     try:
-        response_text = await chat.send_message(UserMessage(text=payload.message))
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=2048,
+            system=system_message,
+            messages=messages,
+        )
+        response_text = resp.content[0].text if resp.content else ""
     except Exception as e:
         logger.exception("Claude error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -613,6 +621,92 @@ async def delete_worksheet(worksheet_id: str):
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Worksheet not found")
     return {"ok": True}
+
+
+@api_router.get("/review/queue")
+async def review_queue():
+    """Spaced repetition: surface questions answered wrong, with next-review timing.
+    Simple SM-2-lite: 1 day after first miss, then 3, 7, 14 days as user re-reviews."""
+    docs = await db.worksheets.find(
+        {"marking_result": {"$ne": None}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    now = datetime.now(timezone.utc)
+    items = []
+    intervals_days = [1, 3, 7, 14, 30]
+    for w in docs:
+        mr = w.get('marking_result') or {}
+        per_q = mr.get('per_question', [])
+        marked_at = mr.get('marked_at')
+        if isinstance(marked_at, str):
+            try:
+                marked_at = datetime.fromisoformat(marked_at)
+            except Exception:
+                marked_at = now
+        elif not marked_at:
+            marked_at = now
+        review_state = w.get('review_state', {})  # {question_number: {"level": int, "next_due": iso}}
+        for p in per_q:
+            if p['awarded'] >= p['out_of']:
+                continue
+            q = next((x for x in w['questions'] if x['number'] == p['number']), None)
+            if not q:
+                continue
+            key = str(p['number'])
+            state = review_state.get(key, {})
+            level = state.get('level', 0)
+            next_due = state.get('next_due')
+            if next_due:
+                try:
+                    next_due_dt = datetime.fromisoformat(next_due)
+                except Exception:
+                    next_due_dt = marked_at
+            else:
+                next_due_dt = marked_at + __import__('datetime').timedelta(days=intervals_days[0])
+            items.append({
+                "worksheet_id": w['id'],
+                "worksheet_title": w['title'],
+                "subject_name": w.get('subject_name', ''),
+                "question_number": p['number'],
+                "question": q['question'],
+                "answer": q['answer'],
+                "marks_lost": p['out_of'] - p['awarded'],
+                "level": level,
+                "next_due": next_due_dt.isoformat() if hasattr(next_due_dt, 'isoformat') else str(next_due_dt),
+                "is_due": (next_due_dt <= now) if hasattr(next_due_dt, '__le__') else True,
+            })
+    items.sort(key=lambda x: (not x['is_due'], x['next_due']))
+    return {"items": items, "due_count": sum(1 for i in items if i['is_due'])}
+
+
+class ReviewMarkRequest(BaseModel):
+    worksheet_id: str
+    question_number: int
+    remembered: bool
+
+
+@api_router.post("/review/mark")
+async def review_mark(payload: ReviewMarkRequest):
+    """Advance or reset spaced-rep level for a question."""
+    intervals_days = [1, 3, 7, 14, 30, 60]
+    doc = await db.worksheets.find_one({"id": payload.worksheet_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Worksheet not found")
+    review_state = doc.get('review_state', {})
+    key = str(payload.question_number)
+    state = review_state.get(key, {"level": 0})
+    if payload.remembered:
+        state['level'] = min(state.get('level', 0) + 1, len(intervals_days) - 1)
+    else:
+        state['level'] = 0
+    from datetime import timedelta as _td
+    next_due = datetime.now(timezone.utc) + _td(days=intervals_days[state['level']])
+    state['next_due'] = next_due.isoformat()
+    review_state[key] = state
+    await db.worksheets.update_one(
+        {"id": payload.worksheet_id},
+        {"$set": {"review_state": review_state}}
+    )
+    return {"ok": True, "next_due": state['next_due'], "level": state['level']}
 
 
 # ---------- Mount ----------

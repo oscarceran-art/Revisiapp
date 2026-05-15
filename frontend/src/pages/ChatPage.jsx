@@ -16,6 +16,8 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [newSubjectId, setNewSubjectId] = useState("");
+  const [streamingId, setStreamingId] = useState(null);
+  const [streamingText, setStreamingText] = useState("");
   const scrollRef = useRef(null);
 
   const isNew = !sessionId;
@@ -34,7 +36,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, sending]);
+  }, [messages, sending, streamingText]);
 
   const handleSend = async () => {
     if (!input.trim() || sending) return;
@@ -57,7 +59,29 @@ export default function ChatPage() {
     setSending(true);
     try {
       const ai = await sendMessage(sid, text);
+      // Typewriter effect: reveal text gradually
+      setStreamingId(ai.id);
+      setStreamingText("");
+      const full = ai.content;
+      const total = full.length;
+      const chunkSize = Math.max(2, Math.ceil(total / 120));
+      const intervalMs = 18;
+      let i = 0;
+      await new Promise(resolve => {
+        const tick = () => {
+          i = Math.min(i + chunkSize, total);
+          setStreamingText(full.slice(0, i));
+          if (i < total) {
+            setTimeout(tick, intervalMs);
+          } else {
+            resolve();
+          }
+        };
+        tick();
+      });
       setMessages(prev => [...prev, ai]);
+      setStreamingId(null);
+      setStreamingText("");
       refresh();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "AI failed to respond");

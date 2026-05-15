@@ -119,8 +119,7 @@ export default function Layout() {
         data-testid="sidebar"
       >
         <NavLink to="/" className="px-6 pt-9 pb-6 block hover:opacity-80 transition-opacity" data-testid="sidebar-brand">
-          <div className="display text-3xl text-black">Revisia</div>
-          <div className="text-[12px] uppercase tracking-[0.22em] text-black/45 mt-1">revision, made warmer</div>
+          <div className="display text-3xl text-black">Revision AI</div>
         </NavLink>
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
