@@ -8,7 +8,7 @@ import json
 import re
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -30,6 +30,9 @@ CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 # ---------- MODELS ----------
@@ -97,6 +100,23 @@ class WorksheetQuestion(BaseModel):
     options: Optional[List[str]] = None
     answer: str
     explanation: Optional[str] = ""
+    marks: int = 1
+
+
+class MarkingFeedback(BaseModel):
+    number: int
+    awarded: float
+    out_of: int
+    feedback: str
+
+
+class MarkingResult(BaseModel):
+    total_awarded: float
+    total_out_of: int
+    percentage: float
+    overall_feedback: str
+    per_question: List[MarkingFeedback]
+    marked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Worksheet(BaseModel):
@@ -109,8 +129,17 @@ class Worksheet(BaseModel):
     question_type: str
     num_questions: int
     title: str
+    instructions: str = ""
+    total_marks: int = 0
+    duration_minutes: int = 0
     questions: List[WorksheetQuestion]
+    user_answers: Dict[str, str] = Field(default_factory=dict)
+    marking_result: Optional[MarkingResult] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MarkRequest(BaseModel):
+    answers: Dict[str, str]  # {question_number: student_answer}
 
 
 # ---------- HELPERS ----------
@@ -353,21 +382,25 @@ def build_worksheet_prompt(req: WorksheetRequest, subject: Optional[dict]) -> st
     if req.extra_instructions:
         parts.append(f"Additional instructions: {req.extra_instructions}")
     parts.append(
-        "Return ONLY a JSON object with this exact shape:\n"
+        "Return ONLY a JSON object with this exact shape (proper exam paper structure):\n"
         "{\n"
-        '  "title": "<short worksheet title>",\n'
+        '  "title": "<exam-style title, e.g. \'Biology Paper 1: Cell Biology\'>",\n'
+        '  "instructions": "<2-4 short bullet-style sentences for the front page: what to do, equipment allowed, etc.>",\n'
+        '  "duration_minutes": <integer estimated minutes>,\n'
+        '  "total_marks": <integer total across all questions>,\n'
         '  "questions": [\n'
         '    {\n'
         '      "number": 1,\n'
         '      "type": "multiple_choice" | "short_answer" | "long_answer",\n'
         '      "question": "<the question>",\n'
         '      "options": ["A) ...", "B) ...", "C) ...", "D) ..."]  (only for multiple_choice, else omit or null),\n'
-        '      "answer": "<the correct answer; for MCQ use the letter and full text>",\n'
-        '      "explanation": "<1-3 sentence explanation>"\n'
+        '      "marks": <integer marks for this question: MCQ=1, short_answer=2-4, long_answer=5-10>,\n'
+        '      "answer": "<the correct/model answer; for MCQ use the letter and full text; for long answer include key points expected>",\n'
+        '      "explanation": "<1-3 sentence markscheme notes on what earns marks>"\n'
         '    }\n'
         '  ]\n'
         '}\n'
-        "Do not wrap in code fences. Do not include any text outside the JSON."
+        "Total_marks MUST equal the sum of all question marks. Do not wrap in code fences. Do not include any text outside the JSON."
     )
     return "\n\n".join(parts)
 
@@ -422,7 +455,16 @@ async def generate_worksheet(req: WorksheetRequest):
             options=q.get('options') if q.get('options') else None,
             answer=q.get('answer', ''),
             explanation=q.get('explanation', '') or '',
+            marks=int(q.get('marks') or (1 if q.get('type') == 'multiple_choice' else 3)),
         ))
+
+    total_marks = data.get('total_marks') or sum(q.marks for q in questions)
+    duration = data.get('duration_minutes') or max(10, total_marks * 1)
+    instructions = data.get('instructions') or (
+        "Answer ALL questions in the spaces provided. "
+        "Read each question carefully. "
+        "Show your working where appropriate."
+    )
 
     ws = Worksheet(
         subject_id=req.subject_id,
@@ -432,6 +474,9 @@ async def generate_worksheet(req: WorksheetRequest):
         question_type=req.question_type,
         num_questions=req.num_questions,
         title=data.get('title') or f"Worksheet: {req.topic}",
+        instructions=instructions,
+        total_marks=int(total_marks),
+        duration_minutes=int(duration),
         questions=questions,
     )
     await db.worksheets.insert_one(serialize_doc(ws.model_dump()))
@@ -443,6 +488,8 @@ async def list_worksheets():
     docs = await db.worksheets.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
+        if d.get('marking_result') and isinstance(d['marking_result'].get('marked_at'), str):
+            d['marking_result']['marked_at'] = parse_datetime(d['marking_result']['marked_at'])
     return docs
 
 
@@ -452,6 +499,111 @@ async def get_worksheet(worksheet_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
     doc['created_at'] = parse_datetime(doc.get('created_at'))
+    if doc.get('marking_result') and isinstance(doc['marking_result'].get('marked_at'), str):
+        doc['marking_result']['marked_at'] = parse_datetime(doc['marking_result']['marked_at'])
+    return doc
+
+
+MARKER_SYSTEM = (
+    "You are a fair, encouraging exam marker. You MUST return ONLY valid JSON, no prose, no code fences."
+)
+
+
+@api_router.post("/worksheets/{worksheet_id}/mark", response_model=Worksheet)
+async def mark_worksheet(worksheet_id: str, payload: MarkRequest):
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+    doc = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Worksheet not found")
+
+    # Build marking prompt
+    lines = [
+        f"Mark this {doc.get('subject_name') or 'revision'} worksheet titled \"{doc['title']}\".",
+        "For each question, compare the student's answer to the model answer and award marks fairly.",
+        "Give partial credit. Be concise and encouraging in feedback (1-2 sentences each).",
+        "",
+        "Questions and student answers:",
+    ]
+    for q in doc['questions']:
+        num = q['number']
+        student = payload.answers.get(str(num), "").strip() or "[no answer]"
+        lines.append(f"\nQ{num} [{q.get('marks', 1)} marks] ({q['type']}): {q['question']}")
+        if q.get('options'):
+            lines.append("Options: " + " | ".join(q['options']))
+        lines.append(f"Model answer: {q['answer']}")
+        if q.get('explanation'):
+            lines.append(f"Markscheme notes: {q['explanation']}")
+        lines.append(f"Student answer: {student}")
+
+    lines.append(
+        "\nReturn ONLY this JSON:\n"
+        "{\n"
+        '  "per_question": [\n'
+        '    {"number": <int>, "awarded": <number, can be decimal>, "out_of": <int>, "feedback": "<1-2 sentences>"}\n'
+        '  ],\n'
+        '  "overall_feedback": "<2-3 sentences summarising strengths and what to revise next>"\n'
+        "}"
+    )
+    prompt = "\n".join(lines)
+
+    chat = LlmChat(
+        api_key=ANTHROPIC_API_KEY,
+        session_id=f"mark-{uuid.uuid4()}",
+        system_message=MARKER_SYSTEM,
+    ).with_model("anthropic", CLAUDE_MODEL)
+
+    try:
+        raw = await chat.send_message(UserMessage(text=prompt))
+    except Exception as e:
+        logger.exception("Marker error")
+        raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
+
+    try:
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        logger.error(f"Marking parse failed: {raw[:500]}")
+        raise HTTPException(status_code=502, detail=f"Could not parse marking result: {e}")
+
+    per_q = []
+    total_awarded = 0.0
+    total_out_of = 0
+    by_num = {q['number']: q for q in doc['questions']}
+    for item in data.get('per_question', []):
+        num = int(item.get('number', 0))
+        q = by_num.get(num)
+        out_of = int(item.get('out_of') or (q.get('marks', 1) if q else 1))
+        awarded = float(item.get('awarded') or 0)
+        awarded = max(0.0, min(awarded, out_of))
+        per_q.append(MarkingFeedback(
+            number=num, awarded=awarded, out_of=out_of,
+            feedback=item.get('feedback', '') or ''
+        ))
+        total_awarded += awarded
+        total_out_of += out_of
+
+    if total_out_of == 0:
+        total_out_of = sum(q.get('marks', 1) for q in doc['questions'])
+
+    result = MarkingResult(
+        total_awarded=round(total_awarded, 1),
+        total_out_of=total_out_of,
+        percentage=round((total_awarded / total_out_of) * 100, 1) if total_out_of else 0.0,
+        overall_feedback=data.get('overall_feedback', '') or '',
+        per_question=per_q,
+    )
+
+    result_doc = serialize_doc(result.model_dump())
+    await db.worksheets.update_one(
+        {"id": worksheet_id},
+        {"$set": {"user_answers": payload.answers, "marking_result": result_doc}}
+    )
+
+    doc['user_answers'] = payload.answers
+    doc['marking_result'] = result_doc
+    doc['created_at'] = parse_datetime(doc.get('created_at'))
+    if isinstance(doc['marking_result'].get('marked_at'), str):
+        doc['marking_result']['marked_at'] = parse_datetime(doc['marking_result']['marked_at'])
     return doc
 
 
@@ -474,8 +626,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger.info("Revisia API ready, model: %s, has_key: %s", CLAUDE_MODEL, bool(ANTHROPIC_API_KEY))
 
 
 @app.on_event("shutdown")

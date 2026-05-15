@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BookOpen, Plus, Trash, UploadSimple, FloppyDisk } from "@phosphor-icons/react";
 import { listSubjects, createSubject, updateSubject, deleteSubject, uploadSubjectNotes } from "@/lib/api";
+import { useSidebarData } from "@/context/SidebarContext";
 
 export default function SubjectsPage() {
+  const { refresh: refreshSidebar } = useSidebarData();
   const [subjects, setSubjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [editing, setEditing] = useState({ name: "", description: "", notes: "" });
@@ -17,6 +19,7 @@ export default function SubjectsPage() {
   const refresh = async (preserveId = null) => {
     const s = await listSubjects();
     setSubjects(s);
+    refreshSidebar();
     if (preserveId) setSelectedId(preserveId);
     else if (!selectedId && s.length) setSelectedId(s[0].id);
     return s;
@@ -84,15 +87,13 @@ export default function SubjectsPage() {
   };
 
   return (
-    <div className="min-h-screen pt-16 md:pt-12 px-6 md:px-12 pb-16" data-testid="subjects-page">
+    <div className="min-h-screen pt-20 md:pt-14 px-6 md:px-14 pb-16" data-testid="subjects-page">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-end justify-between mb-10">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-black/50">Library</div>
-            <h1 className="text-4xl md:text-5xl tracking-tight mt-1" style={{ fontVariationSettings: '"opsz" 144, "wght" 400' }}>
-              Subjects
-            </h1>
-            <p className="text-black/60 mt-2">Add subjects with notes — Revisia uses them as context for chats and worksheets.</p>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Library</div>
+            <h1 className="display text-4xl md:text-5xl mt-2">Subjects</h1>
+            <p className="text-black/55 mt-3 max-w-xl">Add subjects with notes — Revisia uses them as context for chats and worksheets.</p>
           </div>
         </div>
 
@@ -101,25 +102,25 @@ export default function SubjectsPage() {
           <div>
             <button
               onClick={() => setShowNew(true)}
-              className="w-full bg-black text-white rounded-lg py-2.5 px-4 flex items-center justify-center gap-2 hover:bg-black/85 transition-colors active:scale-[0.98] mb-3"
+              className="w-full bg-black text-white rounded-2xl py-2.5 px-4 flex items-center justify-center gap-2 hover:bg-black/85 transition-colors active:scale-[0.98] mb-3"
               data-testid="add-subject-btn"
             >
               <Plus size={16} weight="bold" /> New subject
             </button>
 
             {showNew && (
-              <div className="border border-black/15 rounded-lg p-3 mb-3 bg-white">
+              <div className="border border-black/15 rounded-2xl p-3 mb-3 bg-white">
                 <input
                   autoFocus
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setShowNew(false); }}
                   placeholder="e.g. A-Level Biology"
-                  className="w-full border border-black/15 rounded-md px-3 py-2 focus:outline-none focus:border-black text-sm"
+                  className="w-full border border-black/15 rounded-xl px-3 py-2 focus:outline-none focus:border-black text-sm"
                   data-testid="new-subject-name"
                 />
                 <div className="flex gap-2 mt-2">
-                  <button onClick={handleCreate} className="text-sm bg-black text-white rounded-md px-3 py-1.5" data-testid="confirm-subject-btn">Add</button>
+                  <button onClick={handleCreate} className="text-sm bg-black text-white rounded-xl px-3 py-1.5" data-testid="confirm-subject-btn">Add</button>
                   <button onClick={() => { setShowNew(false); setNewName(""); }} className="text-sm text-black/60 px-3 py-1.5">Cancel</button>
                 </div>
               </div>
@@ -127,8 +128,8 @@ export default function SubjectsPage() {
 
             <div className="space-y-1">
               {subjects.length === 0 && !showNew && (
-                <div className="text-center py-12 px-4 border border-dashed border-black/15 rounded-xl">
-                  <BookOpen size={36} weight="thin" className="mx-auto text-black/30" />
+                <div className="text-center py-12 px-4 border border-dashed border-black/15 rounded-2xl">
+                  <BookOpen size={36} weight="duotone" className="mx-auto text-black/30" />
                   <div className="text-sm text-black/50 mt-3">No subjects yet</div>
                 </div>
               )}
@@ -136,7 +137,7 @@ export default function SubjectsPage() {
                 <button
                   key={s.id}
                   onClick={() => setSelectedId(s.id)}
-                  className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${selectedId === s.id ? "bg-black text-white" : "hover:bg-black/5 text-black"}`}
+                  className={`w-full text-left rounded-2xl px-3 py-2.5 transition-colors ${selectedId === s.id ? "bg-black text-white" : "hover:bg-black/[0.04] text-black"}`}
                   data-testid={`subject-item-${s.id}`}
                 >
                   <div className="text-sm truncate">{s.name}</div>
@@ -151,53 +152,52 @@ export default function SubjectsPage() {
           {/* Editor */}
           <div>
             {selected ? (
-              <div className="bg-white border border-black/10 rounded-xl p-6 md:p-8" data-testid="subject-editor">
+              <div className="bg-white border border-black/10 rounded-3xl p-6 md:p-8" data-testid="subject-editor">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                   <input
                     value={editing.name}
                     onChange={e => setEditing(v => ({ ...v, name: e.target.value }))}
-                    className="text-2xl md:text-3xl tracking-tight bg-transparent border-b border-transparent focus:border-black/30 focus:outline-none w-full md:w-auto"
-                    style={{ fontVariationSettings: '"opsz" 144' }}
+                    className="display text-2xl md:text-3xl bg-transparent border-b border-transparent focus:border-black/30 focus:outline-none w-full md:w-auto"
                     data-testid="subject-name-input"
                   />
                   <div className="flex items-center gap-2">
                     <input ref={fileRef} type="file" accept=".txt,.md,.pdf,.docx" onChange={handleUpload} className="hidden" data-testid="upload-file-input" />
-                    <button onClick={() => fileRef.current?.click()} className="border border-black/15 rounded-lg px-3 py-2 text-sm flex items-center gap-2 hover:bg-black/5" data-testid="upload-notes-btn">
-                      <UploadSimple size={16} weight="light" /> Upload notes
+                    <button onClick={() => fileRef.current?.click()} className="border border-black/15 rounded-2xl px-3 py-2 text-sm flex items-center gap-2 hover:bg-black/[0.04]" data-testid="upload-notes-btn">
+                      <UploadSimple size={16} weight="regular" /> Upload notes
                     </button>
-                    <button onClick={handleSave} disabled={saving} className="bg-black text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 active:scale-[0.98]" data-testid="save-subject-btn">
-                      <FloppyDisk size={16} weight="light" /> {saving ? "Saving…" : "Save"}
+                    <button onClick={handleSave} disabled={saving} className="bg-black text-white rounded-2xl px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 active:scale-[0.98]" data-testid="save-subject-btn">
+                      <FloppyDisk size={16} weight="regular" /> {saving ? "Saving…" : "Save"}
                     </button>
                     <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-2" data-testid="delete-subject-btn" aria-label="Delete subject">
-                      <Trash size={18} weight="light" />
+                      <Trash size={18} weight="regular" />
                     </button>
                   </div>
                 </div>
 
-                <label className="text-xs uppercase tracking-[0.18em] text-black/50 mb-2 block">Description</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-2 block">Description</label>
                 <input
                   value={editing.description}
                   onChange={e => setEditing(v => ({ ...v, description: e.target.value }))}
                   placeholder="A short description of this subject"
-                  className="w-full border border-black/15 rounded-lg px-4 py-2.5 mb-6 focus:outline-none focus:border-black"
+                  className="w-full border border-black/15 rounded-2xl px-4 py-2.5 mb-6 focus:outline-none focus:border-black"
                   data-testid="subject-description-input"
                 />
 
-                <label className="text-xs uppercase tracking-[0.18em] text-black/50 mb-2 block">Notes / Context</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-2 block">Notes / Context</label>
                 <textarea
                   value={editing.notes}
                   onChange={e => setEditing(v => ({ ...v, notes: e.target.value }))}
                   placeholder="Paste your revision notes here, or upload a .txt / .pdf / .docx file."
                   rows={18}
-                  className="w-full border border-black/15 rounded-lg px-4 py-3 focus:outline-none focus:border-black text-sm leading-relaxed"
+                  className="w-full border border-black/15 rounded-2xl px-4 py-3 focus:outline-none focus:border-black text-sm leading-relaxed"
                   data-testid="subject-notes-input"
                 />
                 <div className="text-xs text-black/40 mt-2">{(editing.notes || "").length.toLocaleString()} characters</div>
               </div>
             ) : (
-              <div className="bg-white border border-dashed border-black/15 rounded-xl p-16 text-center">
-                <BookOpen size={48} weight="thin" className="mx-auto text-black/30" />
-                <h3 className="text-2xl tracking-tight mt-4" style={{ fontVariationSettings: '"opsz" 144' }}>No subject selected</h3>
+              <div className="bg-white border border-dashed border-black/15 rounded-3xl p-16 text-center">
+                <BookOpen size={48} weight="duotone" className="mx-auto text-black/30" />
+                <h3 className="display text-2xl mt-4">No subject selected</h3>
                 <p className="text-black/50 mt-2">Create one to start adding context.</p>
               </div>
             )}

@@ -10,46 +10,51 @@ body {
     margin: 0;
     font-family: 'Fraunces', serif;
     font-optical-sizing: auto;
-    font-variation-settings: "SOFT" 50, "WONK" 0;
+    /* Soft, rounded Fraunces — max SOFT axis, slight WONK off */
+    font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 14;
+    font-weight: 500;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: #ffffff;
-    color: #000;
+    background: #FAF8F5; /* warm off-white / cream */
+    color: #1a1a1a;
 }
 
-::selection {
-    background: #000;
-    color: #fff;
-}
+::selection { background: #1a1a1a; color: #FAF8F5; }
 
-/* Thin scrollbar */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 999px; }
 *::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
+/* Display headings — bold, rounded Fraunces */
+.display, h1.display, h2.display {
+    font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 144;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
+        --background: 38 33% 97%;       /* cream */
+        --foreground: 0 0% 10%;
         --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
+        --card-foreground: 0 0% 10%;
         --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
+        --popover-foreground: 0 0% 10%;
+        --primary: 0 0% 10%;
+        --primary-foreground: 38 33% 97%;
+        --secondary: 38 25% 93%;
+        --secondary-foreground: 0 0% 10%;
+        --muted: 38 25% 93%;
+        --muted-foreground: 0 0% 45%;
+        --accent: 38 25% 93%;
+        --accent-foreground: 0 0% 10%;
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --radius: 0.5rem;
+        --border: 30 15% 88%;
+        --input: 30 15% 88%;
+        --ring: 0 0% 10%;
+        --radius: 1rem;
     }
 }
 
@@ -58,22 +63,15 @@ body {
     body { @apply bg-background text-foreground; }
 }
 
-/* Worksheet paper-like print styles */
 @media print {
     body { background: white !important; }
     .no-print { display: none !important; }
-    .print-area {
-        box-shadow: none !important;
-        border: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
+    .print-area { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
 }
 
-/* Markdown-ish chat rendering */
 .prose-chat p { margin: 0 0 0.6em; }
 .prose-chat ul { list-style: disc; padding-left: 1.2rem; margin: 0.4em 0; }
 .prose-chat ol { list-style: decimal; padding-left: 1.4rem; margin: 0.4em 0; }
-.prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 500; margin: 0.6em 0 0.3em; }
-.prose-chat code { background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; font-family: 'Fraunces', serif; }
-.prose-chat strong { font-weight: 600; }
+.prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; margin: 0.6em 0 0.3em; }
+.prose-chat code { background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 6px; }
+.prose-chat strong { font-weight: 700; }

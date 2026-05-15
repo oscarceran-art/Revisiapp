@@ -29,3 +29,4 @@ export const generateWorksheet = (data) => api.post("/worksheets/generate", data
 export const listWorksheets = () => api.get("/worksheets").then(r => r.data);
 export const getWorksheet = (id) => api.get(`/worksheets/${id}`).then(r => r.data);
 export const deleteWorksheet = (id) => api.delete(`/worksheets/${id}`).then(r => r.data);
+export const markWorksheet = (id, answers) => api.post(`/worksheets/${id}/mark`, { answers }).then(r => r.data);
