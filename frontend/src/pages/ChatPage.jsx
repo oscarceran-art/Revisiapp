@@ -117,7 +117,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 md:px-12 py-8" data-testid="chat-messages">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 md:px-12 py-8 font-fraunces" data-testid="chat-messages">
         <div className="max-w-3xl mx-auto">
           {messages.length === 0 && !sending && (
             <div className="text-center pt-16 animate-fade-up">
@@ -166,7 +166,7 @@ export default function ChatPage() {
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
             rows={1}
             placeholder="Ask anything…"
-            className="flex-1 resize-none rounded-3xl border border-black/15 px-5 py-3.5 focus:outline-none focus:border-black bg-[#FAF8F5] text-base"
+            className="flex-1 resize-none rounded-3xl border border-black/15 px-5 py-3.5 focus:outline-none focus:border-black bg-[#FAF8F5] text-base font-fraunces"
             data-testid="chat-input-field"
             style={{ minHeight: "52px", maxHeight: "200px" }}
           />

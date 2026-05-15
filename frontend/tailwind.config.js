@@ -5,9 +5,10 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Fraunces', 'serif'],
+                sans: ['Nunito', 'system-ui', 'sans-serif'],
                 serif: ['Fraunces', 'serif'],
-                display: ['Fraunces', 'serif'],
+                display: ['Nunito', 'system-ui', 'sans-serif'],
+                fraunces: ['Fraunces', 'serif'],
             },
             borderRadius: {
                 lg: 'var(--radius)',
