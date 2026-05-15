@@ -10,12 +10,12 @@ body {
     margin: 0;
     font-family: 'Fraunces', serif;
     font-optical-sizing: auto;
-    /* Soft, rounded Fraunces — max SOFT axis, slight WONK off */
+    /* Bold, soft, rounded Fraunces throughout */
     font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 14;
-    font-weight: 500;
+    font-weight: 600;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: #FAF8F5; /* warm off-white / cream */
+    background: #FAF8F5;
     color: #1a1a1a;
 }
 
@@ -26,11 +26,20 @@ body {
 *::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 999px; }
 *::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
-/* Display headings — bold, rounded Fraunces */
+/* Display headings — extra bold, rounded Fraunces */
 .display, h1.display, h2.display {
     font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 144;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -0.01em;
+}
+
+/* Page transition */
+.page-fade {
+    animation: page-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes page-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 @layer base {

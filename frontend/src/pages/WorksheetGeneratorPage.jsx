@@ -18,11 +18,12 @@ export default function WorksheetGeneratorPage() {
   const [searchParams] = useSearchParams();
   const { subjects, refresh } = useSidebarData();
   const subjectParam = searchParams.get("subject");
+  const topicParam = searchParams.get("topic");
   const defaultSubjectId = subjectParam && subjectParam !== "general" ? subjectParam : "";
 
   const [form, setForm] = useState({
     subject_id: defaultSubjectId,
-    topic: "",
+    topic: topicParam || "",
     num_questions: 10,
     difficulty: "medium",
     question_type: "mixed",

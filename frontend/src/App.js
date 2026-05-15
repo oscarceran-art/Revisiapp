@@ -7,6 +7,7 @@ import ChatPage from "@/pages/ChatPage";
 import SubjectsPage from "@/pages/SubjectsPage";
 import WorksheetGeneratorPage from "@/pages/WorksheetGeneratorPage";
 import WorksheetViewerPage from "@/pages/WorksheetViewerPage";
+import MarkschemeViewerPage from "@/pages/MarkschemeViewerPage";
 import HomePage from "@/pages/HomePage";
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
               <Route path="/chat/:sessionId" element={<ChatPage />} />
               <Route path="/subjects" element={<SubjectsPage />} />
               <Route path="/worksheets/new" element={<WorksheetGeneratorPage />} />
+              <Route path="/worksheets/:id/markscheme" element={<MarkschemeViewerPage />} />
               <Route path="/worksheets/:id" element={<WorksheetViewerPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

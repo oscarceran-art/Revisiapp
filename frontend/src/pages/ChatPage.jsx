@@ -71,11 +71,11 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen" data-testid="chat-page">
-      <div className="px-6 md:px-12 pt-16 md:pt-10 pb-5 border-b border-black/10 bg-[#FAF8F5]/80 backdrop-blur">
+      <div className="px-6 md:px-10 pt-14 md:pt-5 pb-3 border-b border-black/10 bg-[#FAF8F5]/85 backdrop-blur sticky top-0 z-10">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">{subjectLabel}</div>
-            <div className="display text-2xl md:text-3xl truncate mt-1">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-black/45">{subjectLabel}</div>
+            <div className="text-base md:text-lg font-bold truncate">
               {activeSession?.title || "Start a new chat"}
             </div>
           </div>
@@ -83,10 +83,10 @@ export default function ChatPage() {
             <select
               value={newSubjectId}
               onChange={e => setNewSubjectId(e.target.value)}
-              className="text-sm border border-black/15 rounded-2xl px-3 py-2 bg-white focus:outline-none focus:border-black"
+              className="text-sm border border-black/15 rounded-full px-3 py-1.5 bg-white focus:outline-none focus:border-black"
               data-testid="chat-subject-select"
             >
-              <option value="">General (no subject)</option>
+              <option value="">General</option>
               {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           )}

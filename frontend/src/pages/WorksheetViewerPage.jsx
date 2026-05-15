@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Eye, EyeSlash, DownloadSimple, ListChecks, Trash, CheckCircle, Circle, FileText,
+  ArrowLeft, Eye, EyeSlash, ListChecks, Trash, CheckCircle, Circle, FileText, ArrowsClockwise,
 } from "@phosphor-icons/react";
 import { getWorksheet, deleteWorksheet, markWorksheet } from "@/lib/api";
 import { useSidebarData } from "@/context/SidebarContext";
-import jsPDF from "jspdf";
 
 function StudentAnswerField({ q, value, onChange, disabled }) {
   if (q.options && q.options.length > 0) {
@@ -55,7 +54,6 @@ export default function WorksheetViewerPage() {
   const [answers, setAnswers] = useState({});
   const [showAnswers, setShowAnswers] = useState(false);
   const [marking, setMarking] = useState(false);
-  const paperRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -89,99 +87,6 @@ export default function WorksheetViewerPage() {
     }
   };
 
-  const exportPDF = (markscheme) => {
-    if (!ws) return;
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const margin = 56;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const usableW = pageWidth - margin * 2;
-    let y = margin;
-
-    const ensure = (h) => { if (y + h > pageHeight - margin) { doc.addPage(); y = margin; } };
-    const writeText = (text, opts = {}) => {
-      const { size = 11, bold = false, italic = false, indent = 0, gap = 6, color = [0,0,0] } = opts;
-      const style = bold && italic ? "bolditalic" : bold ? "bold" : italic ? "italic" : "normal";
-      doc.setFont("times", style);
-      doc.setFontSize(size);
-      doc.setTextColor(...color);
-      const lines = doc.splitTextToSize(String(text || ""), usableW - indent);
-      lines.forEach(line => {
-        ensure(size + 4);
-        doc.text(line, margin + indent, y);
-        y += size + 4;
-      });
-      y += gap;
-    };
-
-    if (markscheme) {
-      // MARKSCHEME front
-      writeText("MARK SCHEME", { size: 26, bold: true });
-      y += 6;
-      writeText(ws.title, { size: 14, italic: true });
-      if (ws.subject_name) writeText(`Subject: ${ws.subject_name}`, { size: 11, color: [80,80,80] });
-      writeText(`Total: ${ws.total_marks} marks`, { size: 11, color: [80,80,80] });
-      y += 6;
-      doc.setDrawColor(0); doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 18;
-
-      ws.questions.forEach(q => {
-        writeText(`Q${q.number} [${q.marks} mark${q.marks !== 1 ? "s" : ""}]`, { size: 12, bold: true, gap: 2 });
-        writeText(q.question, { size: 11, italic: true, color: [70,70,70], gap: 4 });
-        writeText(`Answer: ${q.answer}`, { size: 11, bold: true, gap: 2 });
-        if (q.explanation) writeText(`Markscheme: ${q.explanation}`, { size: 10.5, color: [60,60,60], gap: 10 });
-      });
-    } else {
-      // FRONT PAGE
-      writeText(ws.subject_name || "Revision Paper", { size: 12, color: [80,80,80] });
-      y += 4;
-      writeText(ws.title, { size: 26, bold: true });
-      y += 10;
-      doc.setDrawColor(0); doc.setLineWidth(1); doc.line(margin, y, pageWidth - margin, y); y += 30;
-
-      writeText("INSTRUCTIONS", { size: 11, bold: true, gap: 8 });
-      writeText(ws.instructions || "Answer all questions in the spaces provided.", { size: 11, gap: 14 });
-
-      writeText("INFORMATION", { size: 11, bold: true, gap: 8 });
-      writeText(`• The total mark for this paper is ${ws.total_marks}.`, { size: 11, gap: 2 });
-      writeText(`• Suggested time: ${ws.duration_minutes} minutes.`, { size: 11, gap: 2 });
-      writeText(`• The marks for each question are shown in brackets [ ].`, { size: 11, gap: 14 });
-
-      // Name / Date box
-      ensure(60);
-      writeText("Name: ____________________________     Date: ____________", { size: 11, gap: 14 });
-
-      doc.addPage(); y = margin;
-
-      ws.questions.forEach(q => {
-        ensure(40);
-        writeText(`${q.number}. ${q.question}     [${q.marks}]`, { size: 12, bold: true, gap: 4 });
-        if (q.options && q.options.length) {
-          q.options.forEach(opt => writeText(opt, { size: 11, indent: 18, gap: 2 }));
-          y += 4;
-        } else {
-          const lineCount = q.type === "long_answer" ? 8 : 3;
-          for (let i = 0; i < lineCount; i++) {
-            ensure(20);
-            doc.setDrawColor(170); doc.setLineWidth(0.4);
-            doc.line(margin + 10, y, pageWidth - margin, y);
-            y += 20;
-          }
-          y += 4;
-        }
-      });
-
-      // END marker
-      ensure(20);
-      doc.setFont("times", "bold"); doc.setFontSize(11); doc.setTextColor(0);
-      doc.text("— END OF PAPER —", pageWidth / 2, y, { align: "center" });
-    }
-
-    const suffix = markscheme ? "-markscheme" : "";
-    const safe = (ws.title || "worksheet").replace(/[^a-z0-9-_ ]/gi, "_");
-    doc.save(`${safe}${suffix}.pdf`);
-    toast.success(markscheme ? "Markscheme downloaded" : "Question paper downloaded");
-  };
-
   if (loading || !ws) {
     return <div className="min-h-screen flex items-center justify-center text-black/40">Loading…</div>;
   }
@@ -206,18 +111,11 @@ export default function WorksheetViewerPage() {
               {showAnswers ? "Hide answers" : "Show answers"}
             </button>
             <button
-              onClick={() => exportPDF(false)}
+              onClick={() => navigate(`/worksheets/${id}/markscheme`)}
               className="border border-black/15 rounded-2xl px-4 py-2 text-sm flex items-center gap-2 hover:bg-black/[0.04]"
-              data-testid="download-paper-btn"
+              data-testid="view-markscheme-btn"
             >
-              <DownloadSimple size={16} weight="regular" /> Question paper
-            </button>
-            <button
-              onClick={() => exportPDF(true)}
-              className="border border-black/15 rounded-2xl px-4 py-2 text-sm flex items-center gap-2 hover:bg-black/[0.04]"
-              data-testid="download-markscheme-btn"
-            >
-              <FileText size={16} weight="regular" /> Mark scheme
+              <FileText size={16} weight="regular" /> View markscheme
             </button>
             <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-2 rounded-full" data-testid="delete-worksheet-btn" aria-label="Delete">
               <Trash size={18} weight="regular" />
@@ -241,11 +139,34 @@ export default function WorksheetViewerPage() {
                 <p className="text-sm text-black/75 mt-2 leading-relaxed italic">{mr.overall_feedback}</p>
               </div>
             </div>
+            {(() => {
+              const weakTopics = mr.per_question
+                .filter(p => p.awarded < p.out_of)
+                .map(p => ws.questions.find(q => q.number === p.number)?.question)
+                .filter(Boolean);
+              if (weakTopics.length === 0) return null;
+              const topic = `Areas to revisit from "${ws.title}": ${weakTopics.slice(0, 3).join("; ")}`;
+              const url = `/worksheets/new?subject=${ws.subject_id || "general"}&topic=${encodeURIComponent(topic)}`;
+              return (
+                <div className="mt-5 pt-5 border-t border-black/10 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-sm text-black/60">
+                    <strong className="font-bold text-black">{weakTopics.length}</strong> question{weakTopics.length !== 1 ? "s" : ""} need more work.
+                  </div>
+                  <button
+                    onClick={() => navigate(url)}
+                    className="bg-black text-white rounded-2xl px-5 py-2.5 flex items-center gap-2 hover:bg-black/85 transition-colors active:scale-[0.98] text-sm font-bold"
+                    data-testid="practice-mistakes-btn"
+                  >
+                    <ArrowsClockwise size={14} weight="bold" /> Practice your mistakes
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         )}
 
         {/* Exam paper */}
-        <div ref={paperRef} className="bg-white border border-black/10 rounded-3xl shadow-[0_4px_40px_rgba(0,0,0,0.04)] overflow-hidden print-area" data-testid="worksheet-paper">
+        <div className="bg-white border border-black/10 rounded-3xl shadow-[0_4px_40px_rgba(0,0,0,0.04)] overflow-hidden print-area" data-testid="worksheet-paper">
           {/* FRONT PAGE */}
           <div className="p-10 md:p-14 border-b-2 border-black/10">
             <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-2">{ws.subject_name || "Revision paper"}</div>
