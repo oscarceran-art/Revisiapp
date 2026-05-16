@@ -81,6 +81,33 @@ body {
     .print-area { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
 }
 
+/* Smooth chat streaming */
+.streaming-bubble {
+    transform: translateZ(0);
+    will-change: contents;
+}
+.streaming-bubble .streaming-tail {
+    display: inline;
+    animation: tail-fade 0.35s ease-out both;
+}
+@keyframes tail-fade {
+    from { opacity: 0.35; }
+    to { opacity: 1; }
+}
+.stream-cursor {
+    display: inline-block;
+    width: 0.55ch;
+    margin-left: 0.05ch;
+    background: currentColor;
+    height: 1.05em;
+    vertical-align: text-bottom;
+    opacity: 0.6;
+    animation: cursor-blink 1s steps(2) infinite;
+}
+@keyframes cursor-blink {
+    50% { opacity: 0; }
+}
+
 .prose-chat p { margin: 0 0 0.6em; }
 .prose-chat ul { list-style: disc; padding-left: 1.2rem; margin: 0.4em 0; }
 .prose-chat ol { list-style: decimal; padding-left: 1.4rem; margin: 0.4em 0; }

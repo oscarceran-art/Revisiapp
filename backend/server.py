@@ -860,15 +860,109 @@ PERSONAS = {
 
 @api_router.get("/personas")
 async def list_personas():
-    return {
-        "items": [
-            {k: v for k, v in p.items() if k != "system_prompt"}
-            for p in PERSONAS.values()
-        ]
-    }
+    built_in = [
+        {k: v for k, v in p.items() if k != "system_prompt"}
+        for p in PERSONAS.values()
+    ]
+    custom_docs = await db.custom_personas.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    custom = [
+        {k: v for k, v in c.items() if k != "system_prompt"}
+        for c in custom_docs
+    ]
+    return {"items": built_in + custom}
 
 
 def get_persona(pid: Optional[str]):
+    if not pid:
+        return None
+    if pid in PERSONAS:
+        return PERSONAS[pid]
+    # Custom persona (sync fallback: we'll fetch below in stream where async is available)
+    return None
+
+
+async def get_persona_async(pid: Optional[str]):
+    if not pid:
+        return None
+    if pid in PERSONAS:
+        return PERSONAS[pid]
+    doc = await db.custom_personas.find_one({"id": pid}, {"_id": 0})
+    return doc
+
+
+class CustomPersonaRequest(BaseModel):
+    name: str
+    brief: str  # e.g. "A WWII codebreaker who loves cats and speaks in puns"
+
+
+class CustomPersonaModel(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: f"custom-{uuid.uuid4().hex[:8]}")
+    name: str
+    title: str
+    era: str
+    tags: List[str]
+    system_prompt: str
+    custom: bool = True
+    avatar_seed: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@api_router.post("/personas/custom", response_model=CustomPersonaModel)
+async def create_custom_persona(req: CustomPersonaRequest):
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    if not req.name.strip() or not req.brief.strip():
+        raise HTTPException(status_code=400, detail="Name and brief are required")
+
+    gen_prompt = (
+        f"Create a chat persona for a study app. The user wants a character called '{req.name}' "
+        f"with this brief: \"{req.brief}\".\n\n"
+        "Write a persona spec in JSON. The system_prompt should be written in the 2nd person ('You are X. "
+        "Speak as X would: …') and instruct the model to stay in character, suggest the voice, tone, "
+        "vocabulary, mannerisms, and references the character would use. Keep it 4-6 sentences.\n\n"
+        "Return ONLY this JSON:\n"
+        "{\n"
+        '  "title": "<short role title, e.g. \'Curious astronomer\'>",\n'
+        '  "era": "<e.g. \'1920s\', \'Renaissance\', \'Fictional\'>",\n'
+        '  "tags": ["<3-5 short tags>"],\n'
+        '  "system_prompt": "<the in-character system prompt>"\n'
+        '}\n'
+        "No code fences, no extra text."
+    )
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1200,
+            system="You are a creative writing assistant that designs chat personas. Return ONLY valid JSON.",
+            messages=[{"role": "user", "content": gen_prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Generation failed: {e}")
+
+    persona = CustomPersonaModel(
+        name=req.name.strip(),
+        title=data.get('title', '') or 'Custom character',
+        era=data.get('era', '') or 'Custom',
+        tags=data.get('tags', []) or ['custom'],
+        system_prompt=data.get('system_prompt', '') or f"You are {req.name}. {req.brief}",
+    )
+    await db.custom_personas.insert_one(serialize_doc(persona.model_dump()))
+    return persona
+
+
+@api_router.delete("/personas/custom/{persona_id}")
+async def delete_custom_persona(persona_id: str):
+    res = await db.custom_personas.delete_one({"id": persona_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Custom persona not found")
+    return {"ok": True}
+
+
+def get_persona_built_in(pid: Optional[str]):
+    """Sync-only lookup for built-in personas (used inside group-message labels)."""
     if not pid:
         return None
     return PERSONAS.get(pid)
@@ -920,7 +1014,7 @@ async def stream_reply(req: StreamReplyRequest):
     if session.get('subject_id'):
         subject = await get_subject(session['subject_id'])
 
-    persona = get_persona(req.persona_id)
+    persona = await get_persona_async(req.persona_id)
     if persona:
         sys_msg = build_persona_system_message(persona, subject)
     else:
@@ -930,23 +1024,52 @@ async def stream_reply(req: StreamReplyRequest):
         {"session_id": req.session_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(2000)
 
-    # In group chat, label prior assistant messages with their persona names so the LLM knows who said what
-    messages = []
+    # Pre-load all personas referenced in history (to label messages in group chat)
     is_group = len(session.get('personas') or []) > 1
-    for m in history:
-        if m['role'] == 'assistant' and is_group:
+    persona_cache = {}
+    if is_group:
+        for m in history:
             pid = m.get('persona_id')
-            p = get_persona(pid)
-            label = p['name'] if p else 'Assistant'
-            messages.append({"role": "assistant", "content": f"[{label}]: {m['content']}"})
+            if pid and pid not in persona_cache:
+                persona_cache[pid] = await get_persona_async(pid)
+
+    # In group chat, label prior assistant messages with their persona names so the LLM knows who said what
+    # Also: Anthropic requires alternating user/assistant — inject synthetic user separators between
+    # consecutive assistant turns (which happen in group chats).
+    messages = []
+    for m in history:
+        if m['role'] == 'assistant':
+            content = m['content']
+            if is_group:
+                p = persona_cache.get(m.get('persona_id'))
+                label = p['name'] if p else 'Assistant'
+                content = f"[{label}]: {content}"
+            if messages and messages[-1]['role'] == 'assistant':
+                messages.append({"role": "user", "content": "(Continue the discussion.)"})
+            messages.append({"role": "assistant", "content": content})
         else:
-            messages.append({"role": m['role'], "content": m['content']})
+            if messages and messages[-1]['role'] == 'user':
+                messages[-1]['content'] = messages[-1]['content'] + "\n\n" + m['content']
+            else:
+                messages.append({"role": "user", "content": m['content']})
+
+    if messages and messages[-1]['role'] == 'assistant':
+        nudge_name = persona['name'] if persona else "you"
+        messages.append({"role": "user", "content": f"(Now please respond as {nudge_name}.)"})
+    if not messages:
+        messages.append({"role": "user", "content": "(Begin.)"})
 
     # If this is a group chat reply, hint the persona who they are and who has spoken
     if is_group and persona:
-        others = [PERSONAS[pid]['name'] for pid in session.get('personas', []) if pid != persona['id'] and pid in PERSONAS]
+        other_names = []
+        for pid in session.get('personas', []):
+            if pid == persona.get('id'):
+                continue
+            p = await get_persona_async(pid)
+            if p:
+                other_names.append(p['name'])
         sys_msg += (
-            f"\n\nThis is a GROUP conversation. The other participants are: {', '.join(others)}. "
+            f"\n\nThis is a GROUP conversation. The other participants are: {', '.join(other_names)}. "
             "Speak only as yourself, in first person. Address the user and reference what the others "
             "have said when relevant — agree, build on, or politely challenge their points. "
             "Keep it to ONE paragraph (under 120 words) so the conversation stays lively. "

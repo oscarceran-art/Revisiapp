@@ -25,9 +25,12 @@ export default function ChatStarterPage() {
   const [subjectId, setSubjectId] = useState(defaultSubjectId);
   const [starting, setStarting] = useState(false);
 
-  useEffect(() => {
-    listPersonas().then(setPersonas).catch(() => {});
-  }, []);
+  const refreshPersonas = async () => {
+    const list = await listPersonas();
+    setPersonas(list);
+  };
+
+  useEffect(() => { refreshPersonas(); }, []);
 
   useEffect(() => {
     if (mode === "feynman") setSelected(["curious-student"]);

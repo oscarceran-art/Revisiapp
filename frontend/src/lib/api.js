@@ -19,6 +19,8 @@ export const uploadSubjectNotes = (id, file, append = true) => {
 
 // Personas
 export const listPersonas = () => api.get("/personas").then(r => r.data.items);
+export const createCustomPersona = (data) => api.post("/personas/custom", data).then(r => r.data);
+export const deleteCustomPersona = (id) => api.delete(`/personas/custom/${id}`).then(r => r.data);
 
 // Chat
 export const listSessions = () => api.get("/chat/sessions").then(r => r.data);
@@ -75,3 +77,6 @@ export const worksheetFromNotes = (id, data) => api.post(`/notes/${id}/worksheet
 // Persona avatar URL (DiceBear, free, no key)
 export const avatarUrl = (seed) =>
   `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(seed || "anon")}&backgroundType=solid&backgroundColor=f3e8d8,e8d8c4,d9e6f2,e6dff5,ffe0d6`;
+
+export const customAvatarUrl = (seed) =>
+  `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(seed || "anon")}&backgroundType=solid&backgroundColor=1a1a1a,2d2d2d,3a3a3a&hair=bald,buzzcut,bobBangs,longCurls,pixie,short,shortCombover&hairColor=ac6651,d2eff3,e2ba87,f2a07b,fc909f`;

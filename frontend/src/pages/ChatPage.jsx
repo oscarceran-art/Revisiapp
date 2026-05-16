@@ -17,9 +17,12 @@ export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [streaming, setStreaming] = useState(null); // {persona_id, text}
+  const [streamingPersonaId, setStreamingPersonaId] = useState(null);
+  const [streamingText, setStreamingText] = useState("");
   const [typingPersonaId, setTypingPersonaId] = useState(null);
   const scrollRef = useRef(null);
+  const streamBufferRef = useRef("");
+  const rafRef = useRef(null);
 
   const activeSession = sessions.find(s => s.id === sessionId);
   const activeSubject = subjects.find(s => s.id === activeSession?.subject_id);
@@ -37,9 +40,26 @@ export default function ChatPage() {
     if (!sessionId) navigate("/chat/new");
   }, [sessionId, sessions, navigate]);
 
+  // Smooth scroll on new content
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, streaming, typingPersonaId, sending]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 220;
+    if (nearBottom) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, [messages, streamingText, typingPersonaId]);
+
+  // rAF flush of streaming buffer for buttery-smooth updates
+  const scheduleFlush = () => {
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const buf = streamBufferRef.current;
+      if (buf) setStreamingText(prev => prev + buf);
+      streamBufferRef.current = "";
+    });
+  };
 
   const handleSend = async () => {
     if (!input.trim() || sending || !sessionId) return;
@@ -47,7 +67,6 @@ export default function ChatPage() {
     setInput("");
     setSending(true);
 
-    // Optimistic user message
     const tempUser = { id: `tmp-${Date.now()}`, role: "user", content: text };
     setMessages(prev => [...prev, tempUser]);
 
@@ -55,19 +74,21 @@ export default function ChatPage() {
       const saved = await sendUserMessage(sessionId, text);
       setMessages(prev => prev.map(m => m.id === tempUser.id ? saved : m));
 
-      // Determine which personas will reply
       const replyOrder = (activeSession?.personas || []).length > 0
         ? activeSession.personas
-        : [null]; // null = default tutor
+        : [null];
 
       for (const pid of replyOrder) {
         setTypingPersonaId(pid || "default");
-        setStreaming({ persona_id: pid, text: "" });
+        setStreamingPersonaId(pid);
+        setStreamingText("");
+        streamBufferRef.current = "";
+        let finalMsg = null;
         try {
-          let finalMsg = null;
           for await (const chunk of streamReply(sessionId, pid)) {
             if (chunk.delta) {
-              setStreaming(s => s ? { ...s, text: s.text + chunk.delta } : s);
+              streamBufferRef.current += chunk.delta;
+              scheduleFlush();
             } else if (chunk.done) {
               finalMsg = {
                 id: chunk.message_id,
@@ -79,16 +100,26 @@ export default function ChatPage() {
               throw new Error(chunk.error);
             }
           }
-          // Commit
-          setStreaming(curr => {
-            if (finalMsg && curr) {
-              setMessages(prev => [...prev, { ...finalMsg, content: curr.text }]);
+          // Final flush
+          if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+          if (streamBufferRef.current) {
+            setStreamingText(prev => prev + streamBufferRef.current);
+            streamBufferRef.current = "";
+          }
+          // Capture the final full text from state via a microtask
+          await new Promise(r => requestAnimationFrame(() => r()));
+          setStreamingText(curr => {
+            if (finalMsg) {
+              const final = { ...finalMsg, content: curr };
+              setMessages(prev => [...prev, final]);
             }
-            return null;
+            return "";
           });
+          setStreamingPersonaId(null);
         } catch (e) {
           toast.error(`${pid || "AI"} failed: ${e.message || "error"}`);
-          setStreaming(null);
+          setStreamingPersonaId(null);
+          setStreamingText("");
         }
       }
       setTypingPersonaId(null);
@@ -100,6 +131,8 @@ export default function ChatPage() {
       setSending(false);
     }
   };
+
+  useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); }, []);
 
   const renderHeader = () => (
     <div className="px-4 sm:px-6 md:px-10 pt-14 md:pt-5 pb-3 border-b border-black/10 bg-[#FAF8F5]/85 backdrop-blur sticky top-0 z-10">
@@ -154,12 +187,13 @@ export default function ChatPage() {
   };
 
   const typingPersona = typingPersonaId && typingPersonaId !== "default" ? findPersona(personas, typingPersonaId) : null;
+  const streamingPersona = streamingPersonaId ? findPersona(personas, streamingPersonaId) : null;
 
   return (
     <div className="flex flex-col h-screen font-fraunces" data-testid="chat-page">
       {renderHeader()}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-10 py-6 sm:py-8" data-testid="chat-messages">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-10 py-6 sm:py-8 scroll-smooth" data-testid="chat-messages">
         <div className="max-w-3xl mx-auto">
           {messages.length === 0 && !sending && (
             <div className="text-center pt-12 sm:pt-16 animate-fade-up">
@@ -181,33 +215,34 @@ export default function ChatPage() {
           {messages.map(renderMessage)}
 
           {/* Live streaming bubble */}
-          {streaming && (
-            <div className="flex mb-5 justify-start gap-2.5">
-              {(() => {
-                const p = streaming.persona_id ? findPersona(personas, streaming.persona_id) : null;
-                return p ? <Avatar persona={p} size={32} />
-                  : <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold shrink-0">AI</div>;
-              })()}
+          {(streamingPersonaId !== null || streamingText) && (
+            <div className="flex mb-5 justify-start gap-2.5 animate-fade-up">
+              {streamingPersona ? <Avatar persona={streamingPersona} size={32} />
+                : <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold shrink-0">AI</div>}
               <div className="max-w-[85%]">
-                {streaming.persona_id && (() => {
-                  const p = findPersona(personas, streaming.persona_id);
-                  return p ? <div className="text-[11px] font-bold text-black/65 mb-1 ml-1">{p.name}</div> : null;
-                })()}
-                <div className="bg-white border border-black/10 rounded-3xl rounded-tl-md px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-                  {streaming.text ? <Markdown text={streaming.text + "▍"} />
-                    : <span className="inline-flex gap-1 text-black/40">
-                        <span className="w-1.5 h-1.5 bg-black/40 rounded-full animate-pulse" />
-                        <span className="w-1.5 h-1.5 bg-black/40 rounded-full animate-pulse [animation-delay:0.2s]" />
-                        <span className="w-1.5 h-1.5 bg-black/40 rounded-full animate-pulse [animation-delay:0.4s]" />
-                      </span>}
+                {streamingPersona && (
+                  <div className="text-[11px] font-bold text-black/65 mb-1 ml-1">{streamingPersona.name}</div>
+                )}
+                <div className="bg-white border border-black/10 rounded-3xl rounded-tl-md px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] streaming-bubble">
+                  {streamingText ? (
+                    <div className="whitespace-pre-wrap leading-relaxed">
+                      {streamingText}
+                      <span className="stream-cursor" />
+                    </div>
+                  ) : (
+                    <span className="inline-flex gap-1 text-black/40">
+                      <span className="w-1.5 h-1.5 bg-black/40 rounded-full animate-pulse" />
+                      <span className="w-1.5 h-1.5 bg-black/40 rounded-full animate-pulse [animation-delay:0.2s]" />
+                      <span className="w-1.5 h-1.5 bg-black/40 rounded-full animate-pulse [animation-delay:0.4s]" />
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Typing indicator (between personas) */}
-          {typingPersonaId && !streaming && (
-            <div className="text-xs text-black/45 italic pl-12" data-testid="typing-indicator">
+          {typingPersonaId && !streamingPersonaId && !streamingText && (
+            <div className="text-xs text-black/45 italic pl-12 animate-fade-up" data-testid="typing-indicator">
               {typingPersona ? `${typingPersona.name} is thinking…` : "Thinking…"}
             </div>
           )}
