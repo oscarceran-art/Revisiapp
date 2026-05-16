@@ -22,6 +22,7 @@ export default function ChatPage() {
   const [typingPersonaId, setTypingPersonaId] = useState(null);
   const scrollRef = useRef(null);
   const streamBufferRef = useRef("");
+  const fullTextRef = useRef("");
   const rafRef = useRef(null);
 
   const activeSession = sessions.find(s => s.id === sessionId);
@@ -83,11 +84,13 @@ export default function ChatPage() {
         setStreamingPersonaId(pid);
         setStreamingText("");
         streamBufferRef.current = "";
+        fullTextRef.current = "";
         let finalMsg = null;
         try {
           for await (const chunk of streamReply(sessionId, pid)) {
             if (chunk.delta) {
               streamBufferRef.current += chunk.delta;
+              fullTextRef.current += chunk.delta;
               scheduleFlush();
             } else if (chunk.done) {
               finalMsg = {
@@ -100,26 +103,27 @@ export default function ChatPage() {
               throw new Error(chunk.error);
             }
           }
-          // Final flush
+          // Final flush of any remaining buffered text
           if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
           if (streamBufferRef.current) {
             setStreamingText(prev => prev + streamBufferRef.current);
             streamBufferRef.current = "";
           }
-          // Capture the final full text from state via a microtask
-          await new Promise(r => requestAnimationFrame(() => r()));
-          setStreamingText(curr => {
-            if (finalMsg) {
-              const final = { ...finalMsg, content: curr };
-              setMessages(prev => [...prev, final]);
-            }
-            return "";
-          });
+          // Commit the assistant message ONCE (using ref, not an updater function with side effects)
+          if (finalMsg) {
+            const committed = { ...finalMsg, content: fullTextRef.current };
+            setMessages(prev =>
+              prev.some(m => m.id === committed.id) ? prev : [...prev, committed]
+            );
+          }
+          setStreamingText("");
           setStreamingPersonaId(null);
+          fullTextRef.current = "";
         } catch (e) {
           toast.error(`${pid || "AI"} failed: ${e.message || "error"}`);
           setStreamingPersonaId(null);
           setStreamingText("");
+          fullTextRef.current = "";
         }
       }
       setTypingPersonaId(null);
