@@ -1,14 +1,43 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
+import { deleteSession, deleteWorksheet } from "@/lib/api";
+import { toast } from "sonner";
 
 function SubjectGroup({ subject, sessions, worksheets, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
   const navigate = useNavigate();
   const location = useLocation();
+  const { refresh } = useSidebarData();
   const name = subject ? subject.name : "General";
   const groupId = subject ? subject.id : "general";
+
+  const handleDeleteChat = async (e, s) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete chat "${s.title || 'Untitled'}"?`)) return;
+    try {
+      await deleteSession(s.id);
+      await refresh();
+      toast.success("Chat deleted");
+      if (location.pathname === `/chat/${s.id}`) navigate("/");
+    } catch {
+      toast.error("Couldn't delete chat");
+    }
+  };
+
+  const handleDeleteWs = async (e, w) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete worksheet "${w.title || w.topic}"?`)) return;
+    try {
+      await deleteWorksheet(w.id);
+      await refresh();
+      toast.success("Worksheet deleted");
+      if (location.pathname === `/worksheets/${w.id}`) navigate("/");
+    } catch {
+      toast.error("Couldn't delete worksheet");
+    }
+  };
 
   return (
     <div className="mb-1">
@@ -48,35 +77,51 @@ function SubjectGroup({ subject, sessions, worksheets, defaultOpen }) {
           {sessions.map(s => {
             const isActive = location.pathname === `/chat/${s.id}`;
             return (
-              <button
+              <div
                 key={s.id}
                 onClick={() => navigate(`/chat/${s.id}`)}
-                className={`w-full text-left text-[15px] px-3 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer w-full text-left text-[15px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-chat-${s.id}`}
               >
                 <ChatCircle size={14} weight="regular" className="shrink-0 opacity-70" />
-                <span className="truncate">{s.title || "Untitled"}</span>
-              </button>
+                <span className="truncate flex-1">{s.title || "Untitled"}</span>
+                <button
+                  onClick={(e) => handleDeleteChat(e, s)}
+                  className={`opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`}
+                  data-testid={`delete-chat-${s.id}`}
+                  aria-label="Delete chat"
+                >
+                  <Trash size={13} weight="regular" />
+                </button>
+              </div>
             );
           })}
 
           {worksheets.map(w => {
             const isActive = location.pathname === `/worksheets/${w.id}`;
             return (
-              <button
+              <div
                 key={w.id}
                 onClick={() => navigate(`/worksheets/${w.id}`)}
-                className={`w-full text-left text-[15px] px-3 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer w-full text-left text-[15px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-worksheet-${w.id}`}
               >
                 <FileText size={14} weight="regular" className="shrink-0 opacity-70" />
-                <span className="truncate">{w.title || w.topic}</span>
+                <span className="truncate flex-1">{w.title || w.topic}</span>
                 {w.marking_result && (
                   <span className={`text-[11px] tabular-nums shrink-0 ${isActive ? "text-white/70" : "text-black/40"}`}>
                     {Math.round(w.marking_result.percentage)}%
                   </span>
                 )}
-              </button>
+                <button
+                  onClick={(e) => handleDeleteWs(e, w)}
+                  className={`opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`}
+                  data-testid={`delete-worksheet-${w.id}`}
+                  aria-label="Delete worksheet"
+                >
+                  <Trash size={13} weight="regular" />
+                </button>
+              </div>
             );
           })}
         </div>
