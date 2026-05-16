@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Eye, EyeSlash, ListChecks, Trash, CheckCircle, Circle, FileText, ArrowsClockwise,
+  ArrowLeft, Eye, EyeSlash, ListChecks, Trash, CheckCircle, Circle, FileText, ArrowsClockwise, Target,
 } from "@phosphor-icons/react";
 import { getWorksheet, deleteWorksheet, markWorksheet } from "@/lib/api";
 import { useSidebarData } from "@/context/SidebarContext";
@@ -117,6 +117,15 @@ export default function WorksheetViewerPage() {
             >
               <FileText size={16} weight="regular" /> View markscheme
             </button>
+            {isMarked && mr.percentage < 100 && (
+              <button
+                onClick={() => navigate(`/worksheets/${id}/cheat-sheet`)}
+                className="bg-black text-white rounded-2xl px-4 py-2 text-sm flex items-center gap-2 hover:bg-black/85 font-bold"
+                data-testid="view-cheat-sheet-btn"
+              >
+                <Target size={16} weight="regular" /> Cheat sheet
+              </button>
+            )}
             <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-2 rounded-full" data-testid="delete-worksheet-btn" aria-label="Delete">
               <Trash size={18} weight="regular" />
             </button>

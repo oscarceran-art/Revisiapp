@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSidebarData } from "@/context/SidebarContext";
-import { ChatCircle, FileText, BookBookmark, Sparkle, Brain, CheckCircle, XCircle } from "@phosphor-icons/react";
+import { ChatCircle, FileText, BookBookmark, Sparkle, Brain, CheckCircle, XCircle, Notebook } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -76,7 +76,7 @@ function ReviewCard({ item, onMarked }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { subjects, sessions, worksheets } = useSidebarData();
+  const { subjects, sessions, worksheets, notes } = useSidebarData();
   const [review, setReview] = useState({ items: [], due_count: 0 });
 
   const loadReview = () => {
@@ -85,22 +85,23 @@ export default function HomePage() {
   useEffect(() => { loadReview(); }, []);
 
   const cards = [
-    { to: "/chat/new", icon: ChatCircle, title: "Start a chat", desc: "Ask Claude Haiku 4.5 anything. Add a subject for context.", testid: "home-card-chat" },
-    { to: "/worksheets/new", icon: FileText, title: "Make a worksheet", desc: "Generate an exam-style paper. AI marks your answers when you're done.", testid: "home-card-worksheet" },
+    { to: "/chat/new", icon: ChatCircle, title: "Start a chat", desc: "Talk with a tutor or historical figure. Group chats supported.", testid: "home-card-chat" },
+    { to: "/worksheets/new", icon: FileText, title: "Make a worksheet", desc: "Exam-style paper. AI marks you, then builds a cheat sheet on your mistakes.", testid: "home-card-worksheet" },
+    { to: "/notes/new", icon: Notebook, title: "Generate notes", desc: "Crisp study notes on any topic. One click turns them into a worksheet.", testid: "home-card-notes" },
     { to: "/subjects", icon: BookBookmark, title: "Manage subjects", desc: "Add subjects and upload notes — they fuel every chat & worksheet.", testid: "home-card-subjects" },
   ];
 
   const dueItems = review.items.filter(i => i.is_due).slice(0, 6);
 
   return (
-    <div className="min-h-screen pt-20 md:pt-16 px-6 md:px-14 pb-16" data-testid="home-page">
+    <div className="min-h-screen pt-20 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="home-page">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-12 animate-fade-up">
+        <div className="mb-10 sm:mb-12 animate-fade-up">
           <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 flex items-center gap-2">
             <Sparkle size={12} weight="fill" /> welcome back
           </div>
-          <h1 className="display text-5xl md:text-6xl lg:text-7xl mt-3 leading-[1.05]">
-            What would you like<br />to revise today?
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl mt-3 leading-[1.05] font-extrabold">
+            What would you like<br className="hidden sm:inline" />{" "}to revise today?
           </h1>
         </div>
 
@@ -129,7 +130,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {cards.map(c => {
             const Icon = c.icon;
             return (
@@ -137,27 +138,28 @@ export default function HomePage() {
                 key={c.to}
                 onClick={() => navigate(c.to)}
                 data-testid={c.testid}
-                className="text-left bg-white border border-black/10 rounded-3xl p-7 hover:border-black/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all active:scale-[0.99]"
+                className="text-left bg-white border border-black/10 rounded-3xl p-5 sm:p-6 hover:border-black/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all active:scale-[0.99]"
               >
-                <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-5">
-                  <Icon size={22} weight="regular" />
+                <div className="w-11 h-11 rounded-2xl bg-black text-white flex items-center justify-center mb-4">
+                  <Icon size={20} weight="regular" />
                 </div>
-                <div className="display text-2xl mb-2">{c.title}</div>
-                <div className="text-sm text-black/55 leading-relaxed">{c.desc}</div>
+                <div className="text-lg sm:text-xl font-extrabold mb-1.5">{c.title}</div>
+                <div className="text-xs sm:text-sm text-black/55 leading-relaxed">{c.desc}</div>
               </button>
             );
           })}
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mt-12">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-8 sm:mt-12">
           {[
             { label: "Subjects", value: subjects.length },
             { label: "Chats", value: sessions.length },
             { label: "Worksheets", value: worksheets.length },
+            { label: "Notes", value: notes.length },
           ].map(s => (
-            <div key={s.label} className="bg-white border border-black/10 rounded-3xl px-6 py-5">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-black/40">{s.label}</div>
-              <div className="display text-4xl mt-1">{s.value}</div>
+            <div key={s.label} className="bg-white border border-black/10 rounded-3xl px-4 sm:px-6 py-4 sm:py-5">
+              <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-black/40">{s.label}</div>
+              <div className="text-3xl sm:text-4xl mt-1 font-extrabold">{s.value}</div>
             </div>
           ))}
         </div>

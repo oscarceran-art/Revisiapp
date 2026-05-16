@@ -64,12 +64,16 @@ class ChatSession(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str = "New chat"
     subject_id: Optional[str] = None
+    personas: List[str] = Field(default_factory=list)
+    mode: Literal["solo", "group", "feynman"] = "solo"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ChatSessionCreate(BaseModel):
     title: Optional[str] = "New chat"
     subject_id: Optional[str] = None
+    personas: List[str] = Field(default_factory=list)
+    mode: Literal["solo", "group", "feynman"] = "solo"
 
 
 class ChatMessage(BaseModel):
@@ -78,7 +82,18 @@ class ChatMessage(BaseModel):
     session_id: str
     role: Literal["user", "assistant"]
     content: str
+    persona_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SendUserMessageRequest(BaseModel):
+    session_id: str
+    message: str
+
+
+class StreamReplyRequest(BaseModel):
+    session_id: str
+    persona_id: Optional[str] = None  # None = default tutor
 
 
 class ChatSendRequest(BaseModel):
@@ -707,6 +722,542 @@ async def review_mark(payload: ReviewMarkRequest):
         {"$set": {"review_state": review_state}}
     )
     return {"ok": True, "next_due": state['next_due'], "level": state['level']}
+
+
+# ---------- PERSONAS ----------
+PERSONAS = {
+    "einstein": {
+        "id": "einstein", "name": "Albert Einstein", "title": "Theoretical physicist",
+        "era": "1879–1955", "tags": ["physics", "relativity", "mathematics"],
+        "system_prompt": (
+            "You are Albert Einstein. Speak in first person as Einstein would: thoughtful, playful, "
+            "fond of vivid thought experiments and gentle humour with a faint German cadence. "
+            "Reference relativity, quantum debates, your time at the patent office, Princeton, and your "
+            "love of music when relevant. Stay in character even if asked modern questions — "
+            "extrapolate as Einstein might. Keep answers warm and accessible."
+        ),
+    },
+    "newton": {
+        "id": "newton", "name": "Isaac Newton", "title": "Mathematician & physicist",
+        "era": "1643–1727", "tags": ["physics", "mathematics", "calculus", "gravity"],
+        "system_prompt": (
+            "You are Sir Isaac Newton. Be formal, meticulous, occasionally aloof. Reference your laws of "
+            "motion, gravitation, the Principia, your time at Cambridge, your work on optics and calculus, "
+            "and your alchemical curiosities. Use a slightly archaic, precise English."
+        ),
+    },
+    "curie": {
+        "id": "curie", "name": "Marie Curie", "title": "Physicist & chemist",
+        "era": "1867–1934", "tags": ["chemistry", "physics", "radioactivity"],
+        "system_prompt": (
+            "You are Marie Curie. Quiet, methodical, fiercely determined. Refer to your work isolating "
+            "polonium and radium, your Nobel prizes, the radium institute, the X-ray ambulances in WWI, "
+            "and the obstacles you faced as a woman in science. Be encouraging to learners."
+        ),
+    },
+    "darwin": {
+        "id": "darwin", "name": "Charles Darwin", "title": "Naturalist",
+        "era": "1809–1882", "tags": ["biology", "evolution", "ecology"],
+        "system_prompt": (
+            "You are Charles Darwin. Patient, observant, slightly hesitant scholar. Reference the Beagle "
+            "voyage, the Galápagos finches, natural selection, your decades of caution before publishing "
+            "On the Origin of Species. Use careful, deliberate Victorian prose."
+        ),
+    },
+    "davinci": {
+        "id": "davinci", "name": "Leonardo da Vinci", "title": "Polymath",
+        "era": "1452–1519", "tags": ["art", "anatomy", "engineering", "design"],
+        "system_prompt": (
+            "You are Leonardo da Vinci. Endlessly curious, sketch metaphors into every explanation, "
+            "blend art and engineering. Refer to your notebooks, anatomy studies, flying machines, "
+            "and Florentine workshops. Speak with wonder."
+        ),
+    },
+    "shakespeare": {
+        "id": "shakespeare", "name": "William Shakespeare", "title": "Playwright",
+        "era": "1564–1616", "tags": ["literature", "drama", "poetry", "english"],
+        "system_prompt": (
+            "You are William Shakespeare. Speak with theatrical flair, slip into iambic pentameter "
+            "when it serves, quote your own works freely. Reference the Globe, your sonnets, your "
+            "comedies, tragedies, and histories. Wit before pomp."
+        ),
+    },
+    "lovelace": {
+        "id": "lovelace", "name": "Ada Lovelace", "title": "Mathematician",
+        "era": "1815–1852", "tags": ["computing", "mathematics", "algorithms"],
+        "system_prompt": (
+            "You are Ada Lovelace. Imaginative, mathematically rigorous. Reference your work with "
+            "Babbage on the Analytical Engine, your 'poetical science', and your notes — particularly "
+            "Note G, the first algorithm. See machines as creative instruments."
+        ),
+    },
+    "tesla": {
+        "id": "tesla", "name": "Nikola Tesla", "title": "Inventor & engineer",
+        "era": "1856–1943", "tags": ["electricity", "engineering", "physics"],
+        "system_prompt": (
+            "You are Nikola Tesla. Eccentric, visionary, fond of dramatic flair. Reference AC current, "
+            "your rivalry with Edison, your Colorado Springs experiments, wireless transmission. "
+            "Speak of the future with bold conviction."
+        ),
+    },
+    "hawking": {
+        "id": "hawking", "name": "Stephen Hawking", "title": "Theoretical physicist",
+        "era": "1942–2018", "tags": ["physics", "cosmology", "black holes"],
+        "system_prompt": (
+            "You are Stephen Hawking. Witty, irreverent, profound. Use accessible analogies for "
+            "black holes, Hawking radiation, the Big Bang, and A Brief History of Time. Drop the "
+            "occasional dry joke."
+        ),
+    },
+    "turing": {
+        "id": "turing", "name": "Alan Turing", "title": "Mathematician & computer scientist",
+        "era": "1912–1954", "tags": ["computing", "mathematics", "cryptography"],
+        "system_prompt": (
+            "You are Alan Turing. Precise, thoughtful, slightly hesitant in speech. Reference your "
+            "work at Bletchley Park breaking Enigma, the Turing machine, the imitation game, "
+            "morphogenesis. Be modest about achievements."
+        ),
+    },
+    "galileo": {
+        "id": "galileo", "name": "Galileo Galilei", "title": "Astronomer & physicist",
+        "era": "1564–1642", "tags": ["astronomy", "physics", "mathematics"],
+        "system_prompt": (
+            "You are Galileo Galilei. Defiant, observational, with Italian Renaissance fire. "
+            "Reference your telescopes, Jupiter's moons, the Inquisition trial, and 'eppur si muove'."
+        ),
+    },
+    "aristotle": {
+        "id": "aristotle", "name": "Aristotle", "title": "Philosopher",
+        "era": "384–322 BCE", "tags": ["philosophy", "biology", "logic", "ethics"],
+        "system_prompt": (
+            "You are Aristotle. Methodical, classifying everything. Reference the Lyceum, "
+            "Plato as your teacher, Alexander as your student, your work on logic, ethics, "
+            "and natural history. Use Socratic questioning."
+        ),
+    },
+    "feynman": {
+        "id": "feynman", "name": "Richard Feynman", "title": "Theoretical physicist & teacher",
+        "era": "1918–1988", "tags": ["physics", "teaching", "quantum mechanics"],
+        "system_prompt": (
+            "You are Richard Feynman. Playful Brooklyn drawl, fierce about clarity, allergic to "
+            "jargon. Use everyday analogies and stories. Reference Caltech, QED, your bongo drums, "
+            "and Surely You're Joking. If something is unclear, demand a simpler explanation."
+        ),
+    },
+    "curious-student": {
+        "id": "curious-student", "name": "The Curious Student", "title": "Feynman-technique partner",
+        "era": "Always", "tags": ["learning", "feynman-technique"],
+        "system_prompt": (
+            "You are an enthusiastic, slightly naive student. The user is going to TEACH YOU a topic "
+            "using the Feynman technique. Your job: ask honest, probing questions whenever you don't "
+            "fully understand. Demand simple language and analogies. When the user uses jargon, ask "
+            "them to explain it. Praise clear explanations. After several exchanges, summarise what "
+            "you've learned and point out the gaps that still confuse you. Stay curious, never lecture."
+        ),
+    },
+}
+
+
+@api_router.get("/personas")
+async def list_personas():
+    return {
+        "items": [
+            {k: v for k, v in p.items() if k != "system_prompt"}
+            for p in PERSONAS.values()
+        ]
+    }
+
+
+def get_persona(pid: Optional[str]):
+    if not pid:
+        return None
+    return PERSONAS.get(pid)
+
+
+def build_persona_system_message(persona: dict, subject: Optional[dict]) -> str:
+    base = persona["system_prompt"]
+    if subject:
+        base += f"\n\nThe student is currently revising: {subject['name']}."
+        if subject.get('description'):
+            base += f"\nSubject context: {subject['description']}"
+        if subject.get('notes'):
+            base += f"\nReference notes:\n---\n{subject['notes'][:6000]}\n---"
+    base += "\n\nKeep replies focused (under 250 words unless the user asks for depth). Use markdown for structure."
+    return base
+
+
+# ---------- STREAMING CHAT ----------
+from fastapi.responses import StreamingResponse
+
+
+@api_router.post("/chat/send-user-message", response_model=ChatMessage)
+async def send_user_message(req: SendUserMessageRequest):
+    """Save the user message (called before streaming persona replies)."""
+    session = await db.chat_sessions.find_one({"id": req.session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    user_msg = ChatMessage(session_id=req.session_id, role="user", content=req.message)
+    await db.chat_messages.insert_one(serialize_doc(user_msg.model_dump()))
+    msg_count = await db.chat_messages.count_documents({"session_id": req.session_id})
+    if msg_count == 1 and (session.get('title') in (None, '', 'New chat')):
+        await db.chat_sessions.update_one(
+            {"id": req.session_id},
+            {"$set": {"title": req.message.strip()[:60]}}
+        )
+    return user_msg
+
+
+@api_router.post("/chat/stream-reply")
+async def stream_reply(req: StreamReplyRequest):
+    """Stream a single persona's reply via SSE."""
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    session = await db.chat_sessions.find_one({"id": req.session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    subject = None
+    if session.get('subject_id'):
+        subject = await get_subject(session['subject_id'])
+
+    persona = get_persona(req.persona_id)
+    if persona:
+        sys_msg = build_persona_system_message(persona, subject)
+    else:
+        sys_msg = build_system_message(subject)
+
+    history = await db.chat_messages.find(
+        {"session_id": req.session_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(2000)
+
+    # In group chat, label prior assistant messages with their persona names so the LLM knows who said what
+    messages = []
+    is_group = len(session.get('personas') or []) > 1
+    for m in history:
+        if m['role'] == 'assistant' and is_group:
+            pid = m.get('persona_id')
+            p = get_persona(pid)
+            label = p['name'] if p else 'Assistant'
+            messages.append({"role": "assistant", "content": f"[{label}]: {m['content']}"})
+        else:
+            messages.append({"role": m['role'], "content": m['content']})
+
+    # If this is a group chat reply, hint the persona who they are and who has spoken
+    if is_group and persona:
+        others = [PERSONAS[pid]['name'] for pid in session.get('personas', []) if pid != persona['id'] and pid in PERSONAS]
+        sys_msg += (
+            f"\n\nThis is a GROUP conversation. The other participants are: {', '.join(others)}. "
+            "Speak only as yourself, in first person. Address the user and reference what the others "
+            "have said when relevant — agree, build on, or politely challenge their points. "
+            "Keep it to ONE paragraph (under 120 words) so the conversation stays lively. "
+            "Do NOT prefix your reply with your own name."
+        )
+
+    msg_id = str(uuid.uuid4())
+
+    async def event_stream():
+        full_text = ""
+        try:
+            async with anthropic_client.messages.stream(
+                model=CLAUDE_MODEL,
+                max_tokens=1500,
+                system=sys_msg,
+                messages=messages,
+            ) as stream:
+                async for text in stream.text_stream:
+                    full_text += text
+                    yield f"data: {json.dumps({'delta': text})}\n\n"
+            ai_msg = ChatMessage(
+                id=msg_id,
+                session_id=req.session_id,
+                role="assistant",
+                content=full_text,
+                persona_id=req.persona_id,
+            )
+            await db.chat_messages.insert_one(serialize_doc(ai_msg.model_dump()))
+            yield f"data: {json.dumps({'done': True, 'message_id': msg_id, 'persona_id': req.persona_id})}\n\n"
+        except Exception as e:
+            logger.exception("Stream error")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    })
+
+
+# ---------- STUDY NOTES ----------
+class StudyNoteSection(BaseModel):
+    heading: str
+    bullets: List[str]
+
+
+class StudyNote(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    subject_id: Optional[str] = None
+    subject_name: Optional[str] = ""
+    topic: str
+    title: str
+    summary: str
+    sections: List[StudyNoteSection]
+    key_terms: List[Dict[str, str]] = Field(default_factory=list)  # [{term, definition}]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class StudyNoteRequest(BaseModel):
+    subject_id: Optional[str] = None
+    topic: str
+    depth: Literal["overview", "standard", "deep"] = "standard"
+
+
+@api_router.post("/notes/generate", response_model=StudyNote)
+async def generate_notes(req: StudyNoteRequest):
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    subject = await get_subject(req.subject_id) if req.subject_id else None
+    depth_map = {
+        "overview": "Concise overview — 3 short sections, max 4 bullets each, no advanced jargon.",
+        "standard": "Comprehensive — 5-7 sections with 4-6 bullets each, key terms defined.",
+        "deep": "In-depth — 7-10 sections, 6-8 bullets each, include nuances, common misconceptions, and exam-style tips.",
+    }
+    parts = [
+        f"Generate clean, well-structured revision study notes on: \"{req.topic}\".",
+        f"Depth: {depth_map[req.depth]}",
+    ]
+    if subject:
+        parts.append(f"Subject: {subject['name']}.")
+        if subject.get('notes'):
+            parts.append(f"Anchor to these student notes where relevant:\n---\n{subject['notes'][:5000]}\n---")
+    parts.append(
+        "Return ONLY a JSON object:\n"
+        "{\n"
+        '  "title": "<short title>",\n'
+        '  "summary": "<1-2 sentence summary of what these notes cover>",\n'
+        '  "sections": [\n'
+        '    {"heading": "<section title>", "bullets": ["<bullet point>", ...]},\n'
+        '    ...\n'
+        '  ],\n'
+        '  "key_terms": [{"term": "<term>", "definition": "<short definition>"}, ...]\n'
+        '}\n'
+        "Use bullets that are full informative sentences, not fragments. No code fences."
+    )
+    prompt = "\n\n".join(parts)
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=4000,
+            system="You are an expert teacher and study-notes author. Return ONLY valid JSON, no prose.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
+    try:
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not parse notes: {e}")
+
+    note = StudyNote(
+        subject_id=req.subject_id,
+        subject_name=subject['name'] if subject else "",
+        topic=req.topic,
+        title=data.get('title') or f"Notes on {req.topic}",
+        summary=data.get('summary', ''),
+        sections=[StudyNoteSection(heading=s.get('heading', ''), bullets=s.get('bullets', [])) for s in data.get('sections', [])],
+        key_terms=[{"term": t.get('term', ''), "definition": t.get('definition', '')} for t in data.get('key_terms', [])],
+    )
+    await db.study_notes.insert_one(serialize_doc(note.model_dump()))
+    return note
+
+
+@api_router.get("/notes", response_model=List[StudyNote])
+async def list_notes():
+    docs = await db.study_notes.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for d in docs:
+        d['created_at'] = parse_datetime(d.get('created_at'))
+    return docs
+
+
+@api_router.get("/notes/{note_id}", response_model=StudyNote)
+async def get_note(note_id: str):
+    doc = await db.study_notes.find_one({"id": note_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Notes not found")
+    doc['created_at'] = parse_datetime(doc.get('created_at'))
+    return doc
+
+
+@api_router.delete("/notes/{note_id}")
+async def delete_note(note_id: str):
+    res = await db.study_notes.delete_one({"id": note_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Notes not found")
+    return {"ok": True}
+
+
+class NoteWorksheetRequest(BaseModel):
+    num_questions: int = 8
+    difficulty: Literal["easy", "medium", "hard", "mixed"] = "medium"
+    question_type: Literal["multiple_choice", "short_answer", "long_answer", "mixed"] = "mixed"
+
+
+@api_router.post("/notes/{note_id}/worksheet", response_model=Worksheet)
+async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest):
+    note = await db.study_notes.find_one({"id": note_id}, {"_id": 0})
+    if not note:
+        raise HTTPException(status_code=404, detail="Notes not found")
+    notes_text_parts = [f"Title: {note['title']}", f"Summary: {note.get('summary', '')}"]
+    for s in note.get('sections', []):
+        notes_text_parts.append(f"\n## {s['heading']}")
+        notes_text_parts.extend([f"- {b}" for b in s.get('bullets', [])])
+    notes_text = "\n".join(notes_text_parts)
+    fake_subject = {"name": note.get('subject_name') or "Notes", "description": "", "notes": notes_text}
+    wreq = WorksheetRequest(
+        subject_id=note.get('subject_id'),
+        topic=note['topic'],
+        num_questions=req.num_questions,
+        difficulty=req.difficulty,
+        question_type=req.question_type,
+        extra_instructions=f"Base questions strictly on the supplied study notes for '{note['title']}'.",
+    )
+    # Reuse the prompt builder with the fake subject containing notes
+    prompt = build_worksheet_prompt(wreq, fake_subject)
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=4000,
+            system=WORKSHEET_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Generation failed: {e}")
+
+    questions = []
+    for i, q in enumerate(data.get('questions', []), start=1):
+        questions.append(WorksheetQuestion(
+            number=q.get('number') or i,
+            type=q.get('type', 'short_answer'),
+            question=q.get('question', ''),
+            options=q.get('options') if q.get('options') else None,
+            answer=q.get('answer', ''),
+            explanation=q.get('explanation', '') or '',
+            marks=int(q.get('marks') or (1 if q.get('type') == 'multiple_choice' else 3)),
+        ))
+    total_marks = data.get('total_marks') or sum(q.marks for q in questions)
+    ws = Worksheet(
+        subject_id=note.get('subject_id'),
+        subject_name=note.get('subject_name', ''),
+        topic=note['topic'],
+        difficulty=req.difficulty,
+        question_type=req.question_type,
+        num_questions=req.num_questions,
+        title=data.get('title') or f"Worksheet: {note['topic']}",
+        instructions=data.get('instructions') or "Answer all questions.",
+        total_marks=int(total_marks),
+        duration_minutes=int(data.get('duration_minutes') or max(10, total_marks)),
+        questions=questions,
+    )
+    await db.worksheets.insert_one(serialize_doc(ws.model_dump()))
+    return ws
+
+
+# ---------- CHEAT SHEET ----------
+class CheatSheet(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    worksheet_id: str
+    title: str
+    intro: str
+    sections: List[StudyNoteSection]
+    tips: List[str]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@api_router.post("/worksheets/{worksheet_id}/cheat-sheet", response_model=CheatSheet)
+async def generate_cheat_sheet(worksheet_id: str):
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    ws = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+    if not ws:
+        raise HTTPException(status_code=404, detail="Worksheet not found")
+
+    # Return existing if any
+    existing = await db.cheat_sheets.find_one({"worksheet_id": worksheet_id}, {"_id": 0})
+    if existing:
+        existing['created_at'] = parse_datetime(existing.get('created_at'))
+        return existing
+
+    mr = ws.get('marking_result')
+    if not mr:
+        raise HTTPException(status_code=400, detail="Worksheet must be marked first")
+
+    wrong_blocks = []
+    for p in mr.get('per_question', []):
+        if p['awarded'] >= p['out_of']:
+            continue
+        q = next((x for x in ws['questions'] if x['number'] == p['number']), None)
+        if not q:
+            continue
+        wrong_blocks.append(
+            f"Q{q['number']}: {q['question']}\n"
+            f"Model answer: {q['answer']}\n"
+            f"Markscheme notes: {q.get('explanation', '')}\n"
+            f"Student's answer: {ws.get('user_answers', {}).get(str(q['number']), '[no answer]')}\n"
+            f"Marks lost: {p['out_of'] - p['awarded']}/{p['out_of']}"
+        )
+
+    if not wrong_blocks:
+        raise HTTPException(status_code=400, detail="No mistakes to focus on — full marks!")
+
+    prompt = (
+        f"A student has just sat the worksheet \"{ws['title']}\" "
+        f"({ws.get('subject_name', '')} · {ws['topic']}) and lost marks on these questions:\n\n"
+        + "\n\n".join(wrong_blocks)
+        + "\n\nWrite a focused **cheat sheet** that teaches them exactly what they got wrong. "
+        "Group related concepts. Use clear bullets, simple language, and concrete examples. "
+        "Include a list of practical revision tips at the end.\n\n"
+        "Return ONLY this JSON:\n"
+        "{\n"
+        '  "title": "<short title>",\n'
+        '  "intro": "<2-3 sentence pep-talk + what we\'ll focus on>",\n'
+        '  "sections": [{"heading": "...", "bullets": ["...", ...]}, ...],\n'
+        '  "tips": ["<actionable revision tip>", ...]\n'
+        '}\n'
+        "No code fences, no prose outside the JSON."
+    )
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=3000,
+            system="You are a kind, expert revision coach. Return ONLY valid JSON.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI error: {e}")
+
+    cs = CheatSheet(
+        worksheet_id=worksheet_id,
+        title=data.get('title') or f"What to revise: {ws['topic']}",
+        intro=data.get('intro', ''),
+        sections=[StudyNoteSection(heading=s.get('heading', ''), bullets=s.get('bullets', [])) for s in data.get('sections', [])],
+        tips=data.get('tips', []),
+    )
+    await db.cheat_sheets.insert_one(serialize_doc(cs.model_dump()))
+    return cs
+
+
+@api_router.get("/worksheets/{worksheet_id}/cheat-sheet", response_model=CheatSheet)
+async def get_cheat_sheet(worksheet_id: str):
+    doc = await db.cheat_sheets.find_one({"worksheet_id": worksheet_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Cheat sheet not found")
+    doc['created_at'] = parse_datetime(doc.get('created_at'))
+    return doc
 
 
 # ---------- Mount ----------
