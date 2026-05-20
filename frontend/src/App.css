@@ -1,2 +1,94 @@
 /* Reset legacy CRA App.css */
 .App { min-height: 100%; }
+
+/* ================= Flip clock ================= */
+.flip-card {
+  position: relative;
+  display: inline-block;
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-weight: 800;
+  perspective: 600px;
+}
+.flip-card .flip-static {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: var(--flip-bg, #0a0a0a);
+  color: var(--flip-fg, #ffffff);
+  overflow: hidden;
+}
+.flip-card .flip-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+.flip-card .flip-top    { top: 0;    align-items: flex-end; }
+.flip-card .flip-bottom { bottom: 0; align-items: flex-start; border-top: 1px solid rgba(255,255,255,0.06); }
+.flip-card .flip-half span { display: block; line-height: 1; }
+.flip-card .flip-top    span { transform: translateY(50%); }
+.flip-card .flip-bottom span { transform: translateY(-50%); }
+
+.flip-card .flip-anim,
+.flip-card .flip-anim-bottom {
+  position: absolute;
+  left: 0; right: 0;
+  height: 50%;
+  background: var(--flip-bg, #0a0a0a);
+  color: var(--flip-fg, #ffffff);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+  border-radius: 10px 10px 0 0;
+}
+.flip-card .flip-anim {
+  top: 0;
+  align-items: flex-end;
+  transform-origin: bottom;
+  animation: flipDown 0.45s cubic-bezier(.55,.05,.45,.95) forwards;
+}
+.flip-card .flip-anim span { transform: translateY(50%); }
+
+.flip-card .flip-anim-bottom {
+  bottom: 0;
+  border-radius: 0 0 10px 10px;
+  align-items: flex-start;
+  transform-origin: top;
+  transform: rotateX(90deg);
+  animation: flipUp 0.45s cubic-bezier(.55,.05,.45,.95) 0.45s forwards;
+}
+.flip-card .flip-anim-bottom span { transform: translateY(-50%); }
+
+@keyframes flipDown {
+  0%   { transform: rotateX(0deg);   }
+  100% { transform: rotateX(-90deg); }
+}
+@keyframes flipUp {
+  0%   { transform: rotateX(90deg);  }
+  100% { transform: rotateX(0deg);   }
+}
+
+/* Light theme override for flip */
+.flip-light { --flip-bg: #ffffff; --flip-fg: #0a0a0a; }
+.flip-light .flip-static { box-shadow: 0 6px 24px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.08); }
+.flip-light .flip-bottom { border-top-color: rgba(0,0,0,0.07); }
+.flip-light .flip-anim, .flip-light .flip-anim-bottom { box-shadow: 0 4px 14px rgba(0,0,0,0.12); }
+
+/* Neon glow */
+.timer-neon {
+  text-shadow:
+    0 0 4px var(--neon-c, #ff3b30),
+    0 0 12px var(--neon-c, #ff3b30),
+    0 0 28px var(--neon-c, #ff3b30),
+    0 0 60px var(--neon-c, #ff3b30);
+}
+
+/* Bg-gradient util */
+.bg-gradient-radial {
+  background-image: radial-gradient(var(--tw-gradient-stops));
+}

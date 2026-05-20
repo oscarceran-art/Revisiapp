@@ -2,10 +2,51 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Eye, EyeSlash, ListChecks, Trash, CheckCircle, Circle, FileText, ArrowsClockwise, Target,
+  ArrowLeft, Eye, EyeSlash, ListChecks, Trash, CheckCircle, Circle, FileText, ArrowsClockwise, Target, Star,
 } from "@phosphor-icons/react";
-import { getWorksheet, deleteWorksheet, markWorksheet } from "@/lib/api";
+import { getWorksheet, deleteWorksheet, markWorksheet, setWorksheetConfidence } from "@/lib/api";
 import { useSidebarData } from "@/context/SidebarContext";
+import { celebrateForScore } from "@/lib/celebrate";
+
+function ConfidenceRow({ ws, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const current = ws.confidence?.rating || 0;
+  const set = async (rating) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const updated = await setWorksheetConfidence(ws.id, rating);
+      onSaved(updated);
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="mt-5 pt-5 border-t border-black/10 flex items-center justify-between flex-wrap gap-3" data-testid="confidence-row">
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">How confident are you on this topic now?</div>
+        <div className="text-[12px] text-black/55 mt-1">Feeds into your revision plan & spaced repetition.</div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {[1, 2, 3, 4, 5].map(n => (
+          <button
+            key={n}
+            onClick={() => set(n)}
+            disabled={saving}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${n <= current ? "bg-black text-white" : "bg-black/[0.05] text-black/35 hover:bg-black/10"}`}
+            data-testid={`confidence-${n}`}
+            aria-label={`${n} out of 5`}
+          >
+            <Star size={14} weight={n <= current ? "fill" : "regular"} />
+          </button>
+        ))}
+        {current > 0 && <span className="ml-2 text-[12px] font-bold tabular-nums">{current}/5</span>}
+      </div>
+    </div>
+  );
+}
 
 function StudentAnswerField({ q, value, onChange, disabled }) {
   if (q.options && q.options.length > 0) {
@@ -79,7 +120,9 @@ export default function WorksheetViewerPage() {
       setWs(updated);
       setShowAnswers(true);
       refresh();
-      toast.success(`Marked: ${updated.marking_result.total_awarded}/${updated.marking_result.total_out_of}`);
+      const pct = updated.marking_result.percentage;
+      toast.success(`Marked: ${updated.marking_result.total_awarded}/${updated.marking_result.total_out_of} (${Math.round(pct)}%)`);
+      celebrateForScore(pct);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Marking failed");
     } finally {
@@ -171,6 +214,7 @@ export default function WorksheetViewerPage() {
                 </div>
               );
             })()}
+            <ConfidenceRow ws={ws} onSaved={setWs} />
           </div>
         )}
 

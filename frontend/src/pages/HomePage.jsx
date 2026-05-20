@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSidebarData } from "@/context/SidebarContext";
-import { ChatCircle, FileText, BookBookmark, Sparkle, Brain, CheckCircle, XCircle, Notebook } from "@phosphor-icons/react";
+import { ChatCircle, FileText, BookBookmark, Sparkle, Brain, CheckCircle, XCircle, Notebook, CalendarBlank, Plus } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+
+function daysBetween(targetIso) {
+  if (!targetIso) return null;
+  try {
+    const target = new Date(targetIso);
+    const now = new Date();
+    const a = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const b = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+    return Math.round((b - a) / (1000 * 60 * 60 * 24));
+  } catch { return null; }
+}
 
 function ReviewCard({ item, onMarked }) {
   const [revealed, setRevealed] = useState(false);
@@ -76,7 +87,7 @@ function ReviewCard({ item, onMarked }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { subjects, sessions, worksheets, notes } = useSidebarData();
+  const { subjects, sessions, worksheets, notes, exams } = useSidebarData();
   const [review, setReview] = useState({ items: [], due_count: 0 });
 
   const loadReview = () => {
@@ -84,11 +95,17 @@ export default function HomePage() {
   };
   useEffect(() => { loadReview(); }, []);
 
+  const upcomingExams = (exams || [])
+    .map(e => ({ ...e, _days: daysBetween(e.exam_date) }))
+    .filter(e => e._days !== null && e._days >= 0)
+    .sort((a, b) => a._days - b._days)
+    .slice(0, 3);
+
   const cards = [
     { to: "/chat/new", icon: ChatCircle, title: "Start a chat", desc: "Talk with a tutor or historical figure. Group chats supported.", testid: "home-card-chat" },
     { to: "/worksheets/new", icon: FileText, title: "Make a worksheet", desc: "Exam-style paper. AI marks you, then builds a cheat sheet on your mistakes.", testid: "home-card-worksheet" },
     { to: "/notes/new", icon: Notebook, title: "Generate notes", desc: "Crisp study notes on any topic. One click turns them into a worksheet.", testid: "home-card-notes" },
-    { to: "/subjects", icon: BookBookmark, title: "Manage subjects", desc: "Add subjects and upload notes — they fuel every chat & worksheet.", testid: "home-card-subjects" },
+    { to: "/exams", icon: CalendarBlank, title: "Exam countdowns", desc: "Track every exam date and get a day-by-day revision plan.", testid: "home-card-exams" },
   ];
 
   const dueItems = review.items.filter(i => i.is_due).slice(0, 6);
@@ -104,6 +121,52 @@ export default function HomePage() {
             What would you like<br className="hidden sm:inline" />{" "}to revise today?
           </h1>
         </div>
+
+        {/* Upcoming exams countdown */}
+        {upcomingExams.length > 0 && (
+          <div className="mb-10 animate-fade-up" data-testid="home-exam-countdowns">
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 flex items-center gap-2">
+                  <CalendarBlank size={12} weight="fill" /> next up
+                </div>
+                <h2 className="display text-2xl md:text-3xl mt-1.5">Exam countdown</h2>
+              </div>
+              <button onClick={() => navigate("/exams")} className="text-sm text-black/55 hover:text-black underline underline-offset-4">All exams →</button>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              {upcomingExams.map(e => {
+                const d = e._days;
+                let big, sub, tone;
+                if (d === 0) { big = "Today"; sub = "Good luck!"; tone = "bg-red-600 text-white"; }
+                else if (d === 1) { big = "Tomorrow"; sub = "One sleep to go"; tone = "bg-red-500 text-white"; }
+                else { big = `${d}`; sub = `day${d === 1 ? "" : "s"} to go`; tone = d <= 7 ? "bg-amber-500 text-white" : "bg-black text-white"; }
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => navigate(`/exams/${e.id}/plan`)}
+                    className={`text-left ${tone} rounded-3xl p-5 hover:opacity-95 transition-opacity active:scale-[0.99]`}
+                    data-testid={`home-exam-${e.id}`}
+                  >
+                    <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">{e.subject_name || "Exam"}</div>
+                    <div className="text-4xl sm:text-5xl font-extrabold mt-2 tabular-nums leading-none">{big}</div>
+                    <div className="text-xs opacity-80 mt-1">{sub}</div>
+                    <div className="text-sm font-bold mt-3 truncate">{e.name}</div>
+                  </button>
+                );
+              })}
+              {upcomingExams.length < 3 && (
+                <button
+                  onClick={() => navigate("/exams")}
+                  className="text-left border border-dashed border-black/20 rounded-3xl p-5 hover:bg-black/[0.03] transition-colors flex items-center justify-center text-black/45 text-sm"
+                  data-testid="home-add-exam"
+                >
+                  <Plus size={14} weight="bold" className="mr-1.5" /> Add another exam
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Spaced repetition due section */}
         {review.due_count > 0 && (

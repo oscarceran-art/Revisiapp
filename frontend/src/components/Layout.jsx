@@ -1,9 +1,12 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
+import { useTimer } from "@/context/TimerContext";
 import { deleteSession, deleteWorksheet, deleteNote } from "@/lib/api";
 import { toast } from "sonner";
+import SearchBar from "@/components/SearchBar";
+import useExamReminders from "@/hooks/useExamReminders";
 
 function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -144,9 +147,21 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notifPerm, setNotifPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const location = useLocation();
   const navigate = useNavigate();
   const { subjects, sessions, worksheets, notes, collapsed, toggleCollapsed } = useSidebarData();
+  const { state: timerState, setOpen: setTimerOpen } = useTimer();
+  useExamReminders();
+
+  const requestNotif = async () => {
+    if (typeof Notification === "undefined") { toast.error("This browser doesn't support notifications"); return; }
+    try {
+      const perm = await Notification.requestPermission();
+      setNotifPerm(perm);
+      if (perm === "granted") toast.success("Exam reminders enabled");
+    } catch { /* ignore */ }
+  };
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
@@ -203,6 +218,7 @@ export default function Layout() {
               { to: "/chat/new", icon: ChatCircle, label: "New chat" },
               { to: "/worksheets/new", icon: FileText, label: "New sheet" },
               { to: "/notes/new", icon: Notebook, label: "New notes" },
+              { to: "/exams", icon: CalendarBlank, label: "Exams" },
               { to: "/subjects", icon: BookBookmark, label: "Subjects" },
             ].map(it => {
               const Icon = it.icon;
@@ -219,9 +235,18 @@ export default function Layout() {
                 </button>
               );
             })}
+            <button
+              onClick={() => setTimerOpen(!timerState.open)}
+              title="Focus timer"
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${timerState.open ? "bg-black text-white" : "hover:bg-black/[0.05] text-black/70"}`}
+              data-testid="collapsed-nav-timer"
+            >
+              <Timer size={18} weight="regular" />
+            </button>
           </div>
         ) : (
           <>
+            <SearchBar />
             <div className="flex-1 overflow-y-auto px-3 pb-4">
               <div className="text-[11px] uppercase tracking-[0.22em] text-black/40 px-3 py-2 flex items-center gap-2">
                 <Stack size={12} weight="bold" /> Library
@@ -233,12 +258,22 @@ export default function Layout() {
                   sessions={g.sessions}
                   worksheets={g.worksheets}
                   notes={g.notes}
-                  defaultOpen={true}
+                  defaultOpen={false}
                 />
               ))}
             </div>
 
             <div className="px-3 py-3 border-t border-black/10">
+              <NavLink
+                to="/exams"
+                data-testid="sidebar-exams-link"
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                }
+              >
+                <CalendarBlank size={16} weight="regular" />
+                <span className="text-[14px] font-semibold">Exams & countdowns</span>
+              </NavLink>
               <NavLink
                 to="/subjects"
                 data-testid="sidebar-manage-subjects"
@@ -249,6 +284,31 @@ export default function Layout() {
                 <BookBookmark size={16} weight="regular" />
                 <span className="text-[14px] font-semibold">Manage subjects</span>
               </NavLink>
+              <div className="mt-3 pt-3 border-t border-black/10 flex gap-2">
+                <button
+                  onClick={() => setTimerOpen(!timerState.open)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold border transition-colors ${timerState.open ? "bg-black text-white border-black" : "border-black/15 hover:bg-black/[0.04]"}`}
+                  data-testid="sidebar-timer-toggle"
+                >
+                  <Timer size={13} weight="regular" /> Timer
+                  {timerState.running && <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse ml-1" />}
+                </button>
+                {notifPerm !== "granted" && (
+                  <button
+                    onClick={requestNotif}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold border border-black/15 hover:bg-black/[0.04]"
+                    data-testid="sidebar-enable-notif"
+                    title="Enable browser notifications for exam-morning reminders"
+                  >
+                    <Bell size={13} weight="regular" /> Enable alerts
+                  </button>
+                )}
+                {notifPerm === "granted" && (
+                  <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold text-black/55" title="Exam reminders on">
+                    <Bell size={13} weight="fill" /> Alerts on
+                  </div>
+                )}
+              </div>
               <div className="px-3 pt-3 pb-1 text-[10px] text-black/35 tracking-wide">
                 Powered by Claude Haiku 4.5
               </div>

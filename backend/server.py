@@ -59,6 +59,13 @@ class SubjectUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class ChatSessionSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    ai_mode: Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"] = "normal"
+    strictness: int = 5  # 1-10
+    context_window: int = 0  # 0 = all, otherwise N most recent messages
+
+
 class ChatSession(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -66,6 +73,10 @@ class ChatSession(BaseModel):
     subject_id: Optional[str] = None
     personas: List[str] = Field(default_factory=list)
     mode: Literal["solo", "group", "feynman"] = "solo"
+    settings: ChatSessionSettings = Field(default_factory=ChatSessionSettings)
+    system_prompt_override: Optional[str] = None  # used for special sessions (e.g. exam debrief)
+    kind: Optional[str] = None  # e.g. "debrief"
+    meta: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -74,6 +85,12 @@ class ChatSessionCreate(BaseModel):
     subject_id: Optional[str] = None
     personas: List[str] = Field(default_factory=list)
     mode: Literal["solo", "group", "feynman"] = "solo"
+
+
+class ChatSessionSettingsUpdate(BaseModel):
+    ai_mode: Optional[Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"]] = None
+    strictness: Optional[int] = None
+    context_window: Optional[int] = None
 
 
 class ChatMessage(BaseModel):
@@ -152,6 +169,7 @@ class Worksheet(BaseModel):
     questions: List[WorksheetQuestion]
     user_answers: Dict[str, str] = Field(default_factory=dict)
     marking_result: Optional[MarkingResult] = None
+    confidence: Optional[Dict[str, Any]] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -321,6 +339,58 @@ async def delete_session(session_id: str):
     return {"ok": True}
 
 
+@api_router.patch("/chat/sessions/{session_id}/settings", response_model=ChatSession)
+async def update_session_settings(session_id: str, payload: ChatSessionSettingsUpdate):
+    session = await db.chat_sessions.find_one({"id": session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    current = session.get('settings') or {}
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if 'strictness' in updates:
+        updates['strictness'] = max(1, min(10, int(updates['strictness'])))
+    if 'context_window' in updates:
+        updates['context_window'] = max(0, int(updates['context_window']))
+    merged = {**current, **updates}
+    # validate via pydantic
+    merged_model = ChatSessionSettings(**merged)
+    await db.chat_sessions.update_one(
+        {"id": session_id},
+        {"$set": {"settings": merged_model.model_dump()}}
+    )
+    session['settings'] = merged_model.model_dump()
+    session['created_at'] = parse_datetime(session.get('created_at'))
+    return session
+
+
+def build_mode_instructions(settings: dict) -> str:
+    ai_mode = (settings or {}).get('ai_mode', 'normal')
+    strictness = int((settings or {}).get('strictness', 5))
+    mode_text = {
+        "normal": "Be a patient, friendly tutor. Explain clearly, give examples, and check understanding occasionally.",
+        "quiz": "QUIZ MODE: Take the lead. Ask the student one focused question at a time about the topic. After they answer, give a short verdict, brief explanation, and immediately ask the next question. Aim to teach them through questioning.",
+        "socratic": "SOCRATIC MODE: Never give direct answers. Always respond with a guiding question that helps the student reason their way to the answer. Affirm progress, but keep the responsibility on them to think.",
+        "flashcard": "FLASHCARD MODE: Each turn, give ONE flashcard in this format — 'Q: <prompt>'. Wait for the student's answer. Then reveal 'A: <answer>' and a 1-sentence note. Then give the next card. Keep cards punchy.",
+        "exam_prep": "EXAM PREP MODE: Behave like an exam coach. Use exam-board language, mark schemes, command words (state, describe, explain, evaluate), and award marks out of clear totals. Always end with a quick 'next step to revise'.",
+        "eli5": "ELI5 MODE: Explain like the student is 5 years old. Use everyday analogies, very short sentences, no jargon. Always include a fun, vivid example.",
+    }
+    strict_text = {
+        1: "Be extremely lenient: accept rough answers, celebrate effort, never correct minor issues.",
+        2: "Be very lenient — accept most answers, only correct major mistakes.",
+        3: "Be lenient — gentle nudges on errors, focus on effort.",
+        4: "Be relaxed — point out errors but don't dwell on them.",
+        5: "Be balanced — fair, point out mistakes clearly but stay warm.",
+        6: "Be a little firm — expect precise language.",
+        7: "Be firm — demand precise language and complete reasoning.",
+        8: "Be strict — call out every imprecision and missing step.",
+        9: "Be very strict — exam-marker rigour, deduct for any vague phrasing.",
+        10: "Be extremely strict — zero tolerance for imprecision, every word must be exam-perfect.",
+    }
+    return (
+        f"\n\nINTERACTION MODE: {mode_text.get(ai_mode, mode_text['normal'])}"
+        f"\nSTRICTNESS LEVEL ({strictness}/10): {strict_text.get(strictness, strict_text[5])}"
+    )
+
+
 @api_router.get("/chat/sessions/{session_id}/messages", response_model=List[ChatMessage])
 async def get_messages(session_id: str):
     docs = await db.chat_messages.find({"session_id": session_id}, {"_id": 0}).sort("created_at", 1).to_list(2000)
@@ -433,11 +503,35 @@ def parse_worksheet_json(text: str) -> dict:
     cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
-    # Extract first {...} block
+    # Extract first {...} block (greedy to last brace)
     match = re.search(r"\{[\s\S]*\}", cleaned)
     if not match:
         raise ValueError("No JSON object found in model output")
-    return json.loads(match.group(0))
+    blob = match.group(0)
+    try:
+        return json.loads(blob)
+    except json.JSONDecodeError:
+        # Repair attempts for truncated/unescaped output (common with long generations)
+        # 1. Trim trailing garbage after the last valid closing brace by progressively shrinking
+        for end in range(len(blob), 0, -1):
+            candidate = blob[:end]
+            # Quick balance check: count quotes / braces / brackets
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+            if end < len(blob) - 800:
+                break
+        # 2. Try closing open arrays/braces
+        opens_obj = blob.count('{') - blob.count('}')
+        opens_arr = blob.count('[') - blob.count(']')
+        repair = blob.rstrip().rstrip(',')
+        # if string is unterminated, close it
+        quotes = len(re.findall(r'(?<!\\)"', repair))
+        if quotes % 2 == 1:
+            repair += '"'
+        repair += (']' * max(0, opens_arr)) + ('}' * max(0, opens_obj))
+        return json.loads(repair)
 
 
 @api_router.post("/worksheets/generate", response_model=Worksheet)
@@ -1014,15 +1108,27 @@ async def stream_reply(req: StreamReplyRequest):
     if session.get('subject_id'):
         subject = await get_subject(session['subject_id'])
 
-    persona = await get_persona_async(req.persona_id)
-    if persona:
-        sys_msg = build_persona_system_message(persona, subject)
-    else:
-        sys_msg = build_system_message(subject)
+    settings = session.get('settings') or {}
+    mode_instructions = build_mode_instructions(settings)
 
-    history = await db.chat_messages.find(
+    persona = await get_persona_async(req.persona_id)
+    if session.get('system_prompt_override'):
+        sys_msg = session['system_prompt_override'] + mode_instructions
+    elif persona:
+        sys_msg = build_persona_system_message(persona, subject) + mode_instructions
+    else:
+        sys_msg = build_system_message(subject) + mode_instructions
+
+    history_full = await db.chat_messages.find(
         {"session_id": req.session_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(2000)
+
+    # Apply context window. 0 = all. Otherwise keep the most recent N messages.
+    ctx_n = int(settings.get('context_window') or 0)
+    if ctx_n > 0 and len(history_full) > ctx_n:
+        history = history_full[-ctx_n:]
+    else:
+        history = history_full
 
     # Pre-load all personas referenced in history (to label messages in group chat)
     is_group = len(session.get('personas') or []) > 1
@@ -1142,9 +1248,9 @@ async def generate_notes(req: StudyNoteRequest):
     depth_map = {
         "overview": "Concise overview — 3 short sections, max 4 bullets each, no advanced jargon.",
         "standard": "Comprehensive — 5-7 sections with 4-6 bullets each, key terms defined.",
-        "deep": "In-depth but TIGHT — exactly 7 sections, exactly 6 bullets each (one sentence per bullet, no sub-points), include common misconceptions and exam tips. Be concise: every bullet ≤ 25 words.",
+        "deep": "In-depth — 6 sections, 5 bullets each (one concise sentence per bullet, max 22 words). Include common misconceptions and exam tips. Define 5-8 key terms. Keep all strings short and JSON-safe.",
     }
-    max_tokens_map = {"overview": 2000, "standard": 4000, "deep": 8000}
+    max_tokens_map = {"overview": 2000, "standard": 4000, "deep": 6000}
     parts = [
         f"Generate clean, well-structured revision study notes on: \"{req.topic}\".",
         f"Depth: {depth_map[req.depth]}",
@@ -1186,6 +1292,150 @@ async def generate_notes(req: StudyNoteRequest):
         subject_name=subject['name'] if subject else "",
         topic=req.topic,
         title=data.get('title') or f"Notes on {req.topic}",
+        summary=data.get('summary', ''),
+        sections=[StudyNoteSection(heading=s.get('heading', ''), bullets=s.get('bullets', [])) for s in data.get('sections', [])],
+        key_terms=[{"term": t.get('term', ''), "definition": t.get('definition', '')} for t in data.get('key_terms', [])],
+    )
+    await db.study_notes.insert_one(serialize_doc(note.model_dump()))
+    return note
+
+
+# ---------- CHAT → MORNING QUIZ & SUMMARY ----------
+async def _build_chat_transcript(session_id: str, max_chars: int = 18000) -> tuple[str, dict]:
+    session = await db.chat_sessions.find_one({"id": session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    history = await db.chat_messages.find(
+        {"session_id": session_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(2000)
+    if not history:
+        raise HTTPException(status_code=400, detail="No messages yet — chat first, then try this.")
+    lines = []
+    for m in history:
+        role = "Student" if m['role'] == 'user' else "Tutor"
+        if m.get('persona_id'):
+            p = await get_persona_async(m['persona_id'])
+            if p:
+                role = p['name']
+        lines.append(f"{role}: {m['content']}")
+    transcript = "\n\n".join(lines)
+    if len(transcript) > max_chars:
+        transcript = transcript[-max_chars:]
+    return transcript, session
+
+
+@api_router.post("/chat/sessions/{session_id}/morning-quiz", response_model=Worksheet)
+async def morning_quiz(session_id: str):
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    transcript, session = await _build_chat_transcript(session_id)
+
+    subject = None
+    if session.get('subject_id'):
+        subject = await get_subject(session['subject_id'])
+
+    prompt = (
+        "Below is a transcript of a revision chat between a student and a tutor. "
+        "Distil the KEY learning points into a short, sharp morning-of-the-exam quiz "
+        "(6 questions: 4 multiple choice, 2 short answer). "
+        "Focus only on what was actually discussed in the chat — do not invent new topics. "
+        "Make it fast to do (10 minutes max).\n\n"
+        f"TRANSCRIPT:\n---\n{transcript}\n---\n\n"
+        "Return ONLY this JSON (no code fences):\n"
+        "{\n"
+        '  "title": "<e.g. \'Morning quiz: <topic>\'>",\n'
+        '  "instructions": "<one-sentence pep talk>",\n'
+        '  "duration_minutes": 10,\n'
+        '  "total_marks": <int>,\n'
+        '  "questions": [\n'
+        '    {"number": 1, "type": "multiple_choice", "question": "...", "options": ["A) ...","B) ...","C) ...","D) ..."], "answer": "<letter and text>", "explanation": "<1 sentence>", "marks": 1},\n'
+        '    {"number": 5, "type": "short_answer", "question": "...", "answer": "<model>", "explanation": "<1 sentence>", "marks": 2}\n'
+        '  ]\n'
+        '}'
+    )
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=3000,
+            system=WORKSHEET_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        logger.exception("Morning quiz failed")
+        raise HTTPException(status_code=502, detail=f"AI error: {e}")
+
+    questions = []
+    for i, q in enumerate(data.get('questions', []), start=1):
+        questions.append(WorksheetQuestion(
+            number=q.get('number') or i,
+            type=q.get('type', 'short_answer'),
+            question=q.get('question', ''),
+            options=q.get('options') if q.get('options') else None,
+            answer=q.get('answer', ''),
+            explanation=q.get('explanation', '') or '',
+            marks=int(q.get('marks') or (1 if q.get('type') == 'multiple_choice' else 2)),
+        ))
+    total_marks = data.get('total_marks') or sum(q.marks for q in questions)
+    title = data.get('title') or f"Morning quiz: {session.get('title') or 'chat'}"
+    ws = Worksheet(
+        subject_id=session.get('subject_id'),
+        subject_name=subject['name'] if subject else "",
+        topic=session.get('title') or 'Chat recap',
+        difficulty="mixed",
+        question_type="mixed",
+        num_questions=len(questions),
+        title=title,
+        instructions=data.get('instructions') or "Quick warm-up before your exam — go!",
+        total_marks=int(total_marks),
+        duration_minutes=int(data.get('duration_minutes') or 10),
+        questions=questions,
+    )
+    await db.worksheets.insert_one(serialize_doc(ws.model_dump()))
+    return ws
+
+
+@api_router.post("/chat/sessions/{session_id}/summary", response_model=StudyNote)
+async def summarise_chat(session_id: str):
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    transcript, session = await _build_chat_transcript(session_id)
+    subject = None
+    if session.get('subject_id'):
+        subject = await get_subject(session['subject_id'])
+
+    prompt = (
+        "Below is a transcript of a revision chat. Write a short, clean STUDY NOTE that summarises the key "
+        "learning from the conversation. Keep it tight: 3-5 sections, 3-5 bullets each, and 3-6 key terms. "
+        "Only include what was actually discussed.\n\n"
+        f"TRANSCRIPT:\n---\n{transcript}\n---\n\n"
+        "Return ONLY this JSON (no code fences):\n"
+        "{\n"
+        '  "title": "<short title>",\n'
+        '  "summary": "<1-2 sentence overview>",\n'
+        '  "sections": [{"heading": "...", "bullets": ["...","..."]}],\n'
+        '  "key_terms": [{"term": "...", "definition": "..."}]\n'
+        '}'
+    )
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=3000,
+            system="You write tight, useful revision notes. Return ONLY valid JSON.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        logger.exception("Chat summary failed")
+        raise HTTPException(status_code=502, detail=f"AI error: {e}")
+
+    note = StudyNote(
+        subject_id=session.get('subject_id'),
+        subject_name=subject['name'] if subject else "",
+        topic=session.get('title') or 'Chat summary',
+        title=data.get('title') or f"Summary: {session.get('title') or 'chat'}",
         summary=data.get('summary', ''),
         sections=[StudyNoteSection(heading=s.get('heading', ''), bullets=s.get('bullets', [])) for s in data.get('sections', [])],
         key_terms=[{"term": t.get('term', ''), "definition": t.get('definition', '')} for t in data.get('key_terms', [])],
@@ -1381,6 +1631,517 @@ async def get_cheat_sheet(worksheet_id: str):
         raise HTTPException(status_code=404, detail="Cheat sheet not found")
     doc['created_at'] = parse_datetime(doc.get('created_at'))
     return doc
+
+
+# ---------- EXAM DATES ----------
+class ExamCreate(BaseModel):
+    name: str
+    exam_date: str  # ISO date or datetime
+    subject_id: Optional[str] = None
+    location: Optional[str] = ""
+    notes: Optional[str] = ""
+
+
+class ExamUpdate(BaseModel):
+    name: Optional[str] = None
+    exam_date: Optional[str] = None
+    subject_id: Optional[str] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    completed: Optional[bool] = None
+
+
+class Exam(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    exam_date: str
+    subject_id: Optional[str] = None
+    subject_name: Optional[str] = ""
+    location: Optional[str] = ""
+    notes: Optional[str] = ""
+    completed: bool = False
+    debrief_session_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+async def _enrich_exam(d: dict) -> dict:
+    d['created_at'] = parse_datetime(d.get('created_at'))
+    if d.get('subject_id') and not d.get('subject_name'):
+        sub = await get_subject(d['subject_id'])
+        if sub:
+            d['subject_name'] = sub.get('name', '')
+    return d
+
+
+@api_router.get("/exams", response_model=List[Exam])
+async def list_exams():
+    docs = await db.exams.find({}, {"_id": 0}).to_list(500)
+    out = [await _enrich_exam(d) for d in docs]
+    out.sort(key=lambda d: d.get('exam_date', ''))
+    return out
+
+
+@api_router.post("/exams", response_model=Exam)
+async def create_exam(payload: ExamCreate):
+    subject_name = ""
+    if payload.subject_id:
+        sub = await get_subject(payload.subject_id)
+        if sub:
+            subject_name = sub.get('name', '')
+    obj = Exam(
+        name=payload.name.strip(),
+        exam_date=payload.exam_date,
+        subject_id=payload.subject_id,
+        subject_name=subject_name,
+        location=payload.location or "",
+        notes=payload.notes or "",
+    )
+    await db.exams.insert_one(serialize_doc(obj.model_dump()))
+    return obj
+
+
+@api_router.patch("/exams/{exam_id}", response_model=Exam)
+async def update_exam(exam_id: str, payload: ExamUpdate):
+    update = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    if 'subject_id' in update:
+        sub = await get_subject(update['subject_id']) if update['subject_id'] else None
+        update['subject_name'] = sub.get('name', '') if sub else ''
+    result = await db.exams.update_one({"id": exam_id}, {"$set": update})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    doc = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+    return await _enrich_exam(doc)
+
+
+@api_router.delete("/exams/{exam_id}")
+async def delete_exam(exam_id: str):
+    res = await db.exams.delete_one({"id": exam_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    await db.revision_plans.delete_many({"exam_id": exam_id})
+    await db.exam_briefs.delete_many({"exam_id": exam_id})
+    return {"ok": True}
+
+
+@api_router.post("/exams/{exam_id}/debrief", response_model=ChatSession)
+async def start_exam_debrief(exam_id: str):
+    """Mark an exam as completed and spin up a reflective chat session with a
+    purpose-built debrief tutor that asks how it went, what was tough, etc."""
+    exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    if exam.get('debrief_session_id'):
+        # Already debriefed — just return existing session
+        existing = await db.chat_sessions.find_one({"id": exam['debrief_session_id']}, {"_id": 0})
+        if existing:
+            existing['created_at'] = parse_datetime(existing.get('created_at'))
+            return existing
+
+    debrief_prompt = (
+        f"You are a warm, empathetic study coach. The student has just finished their exam: "
+        f"\"{exam['name']}\""
+        + (f" in {exam.get('subject_name')}" if exam.get('subject_name') else "")
+        + f" on {exam.get('exam_date', '')}.\n\n"
+        "Your job in this conversation is a POST-EXAM DEBRIEF. Be kind first, analytical second. "
+        "Open with a warm, encouraging greeting and ask ONE clear question to start. Then guide them through:\n"
+        "  1) How they felt going in and during the exam (calm? rushed? blanked?)\n"
+        "  2) Which questions / sections felt good vs which felt hard\n"
+        "  3) Any topics that came up that they wished they'd revised more\n"
+        "  4) Anything they'd do differently next time\n"
+        "Ask ONLY ONE question per reply. Keep replies short (≤ 80 words). React to their emotions. "
+        "If they seem stressed, validate the feeling before moving on. At the end (after ~5-6 exchanges), "
+        "offer to summarise insights into a study note for next time. Never lecture. No bullet lists unless they ask."
+    )
+
+    session = ChatSession(
+        title=f"Debrief: {exam['name']}",
+        subject_id=exam.get('subject_id'),
+        personas=[],
+        mode="solo",
+        system_prompt_override=debrief_prompt,
+        kind="debrief",
+        meta={"exam_id": exam_id, "exam_name": exam['name'], "exam_date": exam.get('exam_date', '')},
+    )
+    await db.chat_sessions.insert_one(serialize_doc(session.model_dump()))
+
+    # Seed the conversation with the first assistant message so the student lands in an inviting space
+    opener_lines = [
+        f"Hey — you've made it through **{exam['name']}**. First things first: take a breath. 🌿",
+        "",
+        "How did it feel walking out of that exam — relieved, drained, frustrated, something else entirely?",
+    ]
+    opener = ChatMessage(
+        session_id=session.id,
+        role="assistant",
+        content="\n".join(opener_lines),
+        persona_id=None,
+    )
+    await db.chat_messages.insert_one(serialize_doc(opener.model_dump()))
+
+    # Mark exam as completed and link the session
+    await db.exams.update_one(
+        {"id": exam_id},
+        {"$set": {"completed": True, "debrief_session_id": session.id}}
+    )
+    return session
+
+
+@api_router.get("/exams/{exam_id}/morning-brief")
+async def get_morning_brief(exam_id: str):
+    """Generate (and cache) a morning-of-exam brief: 3 key topics + a 1-line motivation."""
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    cached = await db.exam_briefs.find_one({"exam_id": exam_id}, {"_id": 0})
+    if cached:
+        return cached
+
+    subject = None
+    if exam.get('subject_id'):
+        subject = await get_subject(exam['subject_id'])
+    subject_block = ""
+    if subject:
+        subject_block = f"Subject: {subject['name']}.\n"
+        if subject.get('notes'):
+            subject_block += f"Notes:\n---\n{subject['notes'][:4000]}\n---\n"
+
+    prompt = (
+        f"It is the morning of \"{exam['name']}\". Write a concise pep-talk message for the student.\n"
+        f"{subject_block}\n"
+        f"User notes about this exam: {exam.get('notes') or '(none)'}\n\n"
+        "Return ONLY this JSON (no code fences):\n"
+        "{\n"
+        '  "key_topics": ["<3-5 specific things to glance at one final time>"],\n'
+        '  "motivation": "<one short, warm, energising sentence — no exclamation overload>",\n'
+        '  "headline": "<short title like \'Biology Paper 1 — you\'ve got this\'>"\n'
+        '}'
+    )
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=600,
+            system="You are a kind, calm revision coach. Return ONLY valid JSON.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        logger.exception("Morning brief failed")
+        raise HTTPException(status_code=502, detail=f"AI error: {e}")
+
+    brief = {
+        "exam_id": exam_id,
+        "exam_name": exam['name'],
+        "exam_date": exam['exam_date'],
+        "headline": data.get('headline') or f"{exam['name']} — go get it",
+        "key_topics": data.get('key_topics') or [],
+        "motivation": data.get('motivation') or "Trust your prep — focus on the question in front of you.",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.exam_briefs.insert_one(serialize_doc(dict(brief)))
+    return brief
+
+
+# ---------- REVISION PLAN ----------
+class RevisionTask(BaseModel):
+    text: str
+    done: bool = False
+    note_id: Optional[str] = None
+    worksheet_id: Optional[str] = None
+    auto_note_topic: Optional[str] = None
+    auto_worksheet_topic: Optional[str] = None
+    generating: Optional[str] = None  # transient field; never persisted strictly
+
+
+class RevisionDay(BaseModel):
+    date: str  # YYYY-MM-DD
+    focus: str
+    tasks: List[RevisionTask]
+
+
+class RevisionPlan(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    exam_id: str
+    exam_name: str
+    days: List[RevisionDay]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PlanTaskToggle(BaseModel):
+    day_index: int
+    task_index: int
+    done: bool
+
+
+@api_router.get("/exams/{exam_id}/plan", response_model=Optional[RevisionPlan])
+async def get_plan(exam_id: str):
+    doc = await db.revision_plans.find_one({"exam_id": exam_id}, {"_id": 0})
+    if not doc:
+        return None
+    doc['created_at'] = parse_datetime(doc.get('created_at'))
+    return doc
+
+
+@api_router.post("/exams/{exam_id}/plan", response_model=RevisionPlan)
+async def generate_plan(exam_id: str):
+    if not anthropic_client:
+        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    # Days remaining (cap to 30 for token sanity, min 1)
+    try:
+        exam_dt = datetime.fromisoformat(exam['exam_date'].replace('Z', '+00:00'))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid exam date")
+    now = datetime.now(timezone.utc)
+    if exam_dt.tzinfo is None:
+        exam_dt = exam_dt.replace(tzinfo=timezone.utc)
+    days_left = max(1, (exam_dt.date() - now.date()).days)
+    days_to_plan = min(days_left, 21)
+
+    subject = None
+    if exam.get('subject_id'):
+        subject = await get_subject(exam['subject_id'])
+    subject_block = ""
+    if subject:
+        subject_block = f"Subject: {subject['name']}.\n"
+        if subject.get('description'):
+            subject_block += f"Description: {subject['description']}\n"
+        if subject.get('notes'):
+            subject_block += f"Reference notes:\n---\n{subject['notes'][:4000]}\n---\n"
+
+    # Gather existing notes & worksheets the AI can wire into tasks
+    note_filter = {"subject_id": exam['subject_id']} if exam.get('subject_id') else {}
+    ws_filter = {"subject_id": exam['subject_id']} if exam.get('subject_id') else {}
+    existing_notes = await db.study_notes.find(note_filter, {"_id": 0, "id": 1, "title": 1, "topic": 1}).sort("created_at", -1).to_list(40)
+    existing_ws = await db.worksheets.find(ws_filter, {"_id": 0, "id": 1, "title": 1, "topic": 1}).sort("created_at", -1).to_list(40)
+
+    library_block = ""
+    if existing_notes:
+        lines = [f"- note_id={n['id']}: \"{n.get('title') or n.get('topic')}\"" for n in existing_notes]
+        library_block += "\nAVAILABLE NOTES (use these IDs when a task says to read notes):\n" + "\n".join(lines)
+    if existing_ws:
+        lines = [f"- worksheet_id={w['id']}: \"{w.get('title') or w.get('topic')}\"" for w in existing_ws]
+        library_block += "\n\nAVAILABLE WORKSHEETS (use these IDs when a task says to complete a worksheet):\n" + "\n".join(lines)
+
+    prompt = (
+        f"Build a focused day-by-day revision plan for the exam: \"{exam['name']}\". "
+        f"It is on {exam['exam_date']}. We have {days_to_plan} days to plan (today onwards). "
+        "Each day: ONE focus + 3-5 short concrete tasks.\n\n"
+        "For each task, attach EXACTLY ONE of these four optional fields (or none):\n"
+        "• `note_id`: id from AVAILABLE NOTES list (only use these — never invent).\n"
+        "• `worksheet_id`: id from AVAILABLE WORKSHEETS list.\n"
+        "• `auto_note_topic`: short topic (≤ 10 words) for a NEW set of notes to be generated. Use when task says 'read notes on …' and topic is NOT in the library.\n"
+        "• `auto_worksheet_topic`: short topic (≤ 10 words) for a NEW worksheet to be generated. Use when task says 'do worksheet on …' and topic is NOT in the library.\n"
+        "OMIT fields that don't apply (don't include them as empty strings or null). Aim for ~70% of tasks "
+        "to carry one of these fields so the plan is materially actionable.\n\n"
+        f"{subject_block}\n"
+        f"{library_block}\n\n"
+        f"User notes about this exam: {exam.get('notes') or '(none)'}\n\n"
+        f"Return ONLY this JSON (no code fences). Use ISO YYYY-MM-DD dates starting from today ({now.date().isoformat()}):\n"
+        "{\n"
+        '  "days": [\n'
+        '    {"date":"YYYY-MM-DD","focus":"<short>","tasks":[\n'
+        '       {"text":"<task>"},\n'
+        '       {"text":"<task>","auto_note_topic":"<topic>"},\n'
+        '       {"text":"<task>","auto_worksheet_topic":"<topic>"}\n'
+        '    ]}\n'
+        '  ]\n'
+        '}'
+    )
+    try:
+        resp = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=7000,
+            system="You are an expert revision coach. Return ONLY valid, parseable JSON. Keep every string short.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text if resp.content else ""
+        data = parse_worksheet_json(raw)
+    except Exception as e:
+        logger.exception("Plan failed")
+        raise HTTPException(status_code=502, detail=f"AI error: {e}")
+
+    valid_note_ids = {n['id'] for n in existing_notes}
+    valid_ws_ids = {w['id'] for w in existing_ws}
+    days = []
+    for d in data.get('days', []):
+        tasks = []
+        for t in d.get('tasks', []):
+            text = (t.get('text') or '').strip()
+            if not text:
+                continue
+            nid = t.get('note_id') if t.get('note_id') in valid_note_ids else None
+            wid = t.get('worksheet_id') if t.get('worksheet_id') in valid_ws_ids else None
+            ant = (t.get('auto_note_topic') or '').strip() or None
+            awt = (t.get('auto_worksheet_topic') or '').strip() or None
+            # If the task already references real content, drop the auto-* fields.
+            if nid:
+                ant = None
+            if wid:
+                awt = None
+            tasks.append(RevisionTask(
+                text=text, done=False,
+                note_id=nid, worksheet_id=wid,
+                auto_note_topic=ant, auto_worksheet_topic=awt,
+            ))
+        days.append(RevisionDay(date=d.get('date', ''), focus=d.get('focus', '') or '', tasks=tasks))
+
+    plan = RevisionPlan(exam_id=exam_id, exam_name=exam['name'], days=days)
+    # Upsert
+    await db.revision_plans.delete_many({"exam_id": exam_id})
+    await db.revision_plans.insert_one(serialize_doc(plan.model_dump()))
+    return plan
+
+
+@api_router.patch("/exams/{exam_id}/plan/task", response_model=RevisionPlan)
+async def toggle_plan_task(exam_id: str, payload: PlanTaskToggle):
+    plan = await db.revision_plans.find_one({"exam_id": exam_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    days = plan.get('days', [])
+    if payload.day_index < 0 or payload.day_index >= len(days):
+        raise HTTPException(status_code=400, detail="Bad day index")
+    tasks = days[payload.day_index].get('tasks', [])
+    if payload.task_index < 0 or payload.task_index >= len(tasks):
+        raise HTTPException(status_code=400, detail="Bad task index")
+    tasks[payload.task_index]['done'] = bool(payload.done)
+    await db.revision_plans.update_one({"exam_id": exam_id}, {"$set": {"days": days}})
+    plan['days'] = days
+    plan['created_at'] = parse_datetime(plan.get('created_at'))
+    return plan
+
+
+class GenerateTaskContent(BaseModel):
+    day_index: int
+    task_index: int
+    kind: Literal["note", "worksheet"]
+
+
+@api_router.post("/exams/{exam_id}/plan/task/generate", response_model=RevisionPlan)
+async def generate_task_content(exam_id: str, payload: GenerateTaskContent):
+    plan = await db.revision_plans.find_one({"exam_id": exam_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    days = plan.get('days', [])
+    if payload.day_index < 0 or payload.day_index >= len(days):
+        raise HTTPException(status_code=400, detail="Bad day index")
+    tasks = days[payload.day_index].get('tasks', [])
+    if payload.task_index < 0 or payload.task_index >= len(tasks):
+        raise HTTPException(status_code=400, detail="Bad task index")
+    task = tasks[payload.task_index]
+
+    exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    subject_id = exam.get('subject_id')
+
+    if payload.kind == "note":
+        if task.get('note_id'):
+            raise HTTPException(status_code=400, detail="Task already has notes")
+        topic = task.get('auto_note_topic') or task.get('text')
+        if not topic:
+            raise HTTPException(status_code=400, detail="No topic for notes")
+        note_req = StudyNoteRequest(subject_id=subject_id, topic=topic, depth="standard")
+        note = await generate_notes(note_req)
+        task['note_id'] = note.id
+        task['auto_note_topic'] = None
+    else:
+        if task.get('worksheet_id'):
+            raise HTTPException(status_code=400, detail="Task already has worksheet")
+        topic = task.get('auto_worksheet_topic') or task.get('text')
+        if not topic:
+            raise HTTPException(status_code=400, detail="No topic for worksheet")
+        ws_req = WorksheetRequest(
+            subject_id=subject_id, topic=topic,
+            num_questions=6, difficulty="medium", question_type="mixed",
+            extra_instructions=f"This worksheet is for revision-plan task: '{task.get('text')}'. Keep it tight (6 questions).",
+        )
+        ws = await generate_worksheet(ws_req)
+        task['worksheet_id'] = ws.id
+        task['auto_worksheet_topic'] = None
+
+    tasks[payload.task_index] = task
+    days[payload.day_index]['tasks'] = tasks
+    await db.revision_plans.update_one({"exam_id": exam_id}, {"$set": {"days": days}})
+    plan['days'] = days
+    plan['created_at'] = parse_datetime(plan.get('created_at'))
+    return plan
+
+
+# ---------- CONFIDENCE RATING ----------
+class ConfidenceRating(BaseModel):
+    rating: int  # 1-5
+    notes: Optional[str] = ""
+
+
+@api_router.post("/worksheets/{worksheet_id}/confidence", response_model=Worksheet)
+async def set_worksheet_confidence(worksheet_id: str, payload: ConfidenceRating):
+    if payload.rating < 1 or payload.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be 1-5")
+    doc = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Worksheet not found")
+    await db.worksheets.update_one(
+        {"id": worksheet_id},
+        {"$set": {"confidence": {"rating": payload.rating, "notes": payload.notes or "",
+                                 "rated_at": datetime.now(timezone.utc).isoformat()}}}
+    )
+    doc = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+    doc['created_at'] = parse_datetime(doc.get('created_at'))
+    if doc.get('marking_result') and isinstance(doc['marking_result'].get('marked_at'), str):
+        doc['marking_result']['marked_at'] = parse_datetime(doc['marking_result']['marked_at'])
+    return doc
+
+
+# ---------- SEARCH ----------
+@api_router.get("/search")
+async def search(q: str = ""):
+    q = (q or "").strip().lower()
+    if not q:
+        return {"chats": [], "notes": [], "worksheets": [], "subjects": [], "exams": []}
+
+    def hit(text: Optional[str]) -> bool:
+        return bool(text) and q in str(text).lower()
+
+    sessions = await db.chat_sessions.find({}, {"_id": 0}).to_list(500)
+    notes = await db.study_notes.find({}, {"_id": 0}).to_list(500)
+    worksheets = await db.worksheets.find({}, {"_id": 0}).to_list(500)
+    subjects = await db.subjects.find({}, {"_id": 0}).to_list(500)
+    exams = await db.exams.find({}, {"_id": 0}).to_list(500)
+
+    return {
+        "chats": [
+            {"id": s['id'], "title": s.get('title') or 'Untitled', "subject_id": s.get('subject_id')}
+            for s in sessions if hit(s.get('title'))
+        ][:20],
+        "notes": [
+            {"id": n['id'], "title": n.get('title') or '', "subject_name": n.get('subject_name', ''), "topic": n.get('topic', '')}
+            for n in notes if hit(n.get('title')) or hit(n.get('topic')) or hit(n.get('summary'))
+        ][:20],
+        "worksheets": [
+            {"id": w['id'], "title": w.get('title') or w.get('topic', ''), "topic": w.get('topic', ''), "subject_name": w.get('subject_name', '')}
+            for w in worksheets if hit(w.get('title')) or hit(w.get('topic'))
+        ][:20],
+        "subjects": [
+            {"id": s['id'], "name": s.get('name', '')}
+            for s in subjects if hit(s.get('name')) or hit(s.get('description'))
+        ][:20],
+        "exams": [
+            {"id": e['id'], "name": e.get('name', ''), "exam_date": e.get('exam_date', ''), "subject_name": e.get('subject_name', '')}
+            for e in exams if hit(e.get('name')) or hit(e.get('notes'))
+        ][:20],
+    }
 
 
 # ---------- Mount ----------

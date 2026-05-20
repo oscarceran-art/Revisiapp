@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { listSubjects, listSessions, listWorksheets, listNotes, listPersonas } from "@/lib/api";
+import { listSubjects, listSessions, listWorksheets, listNotes, listPersonas, listExams } from "@/lib/api";
 
 const SidebarContext = createContext(null);
 
@@ -8,6 +8,7 @@ export function SidebarProvider({ children }) {
   const [sessions, setSessions] = useState([]);
   const [worksheets, setWorksheets] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [exams, setExams] = useState([]);
   const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(() => {
@@ -24,13 +25,14 @@ export function SidebarProvider({ children }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [s, sess, w, n] = await Promise.all([
+      const [s, sess, w, n, ex] = await Promise.all([
         listSubjects().catch(() => []),
         listSessions().catch(() => []),
         listWorksheets().catch(() => []),
         listNotes().catch(() => []),
+        listExams().catch(() => []),
       ]);
-      setSubjects(s); setSessions(sess); setWorksheets(w); setNotes(n);
+      setSubjects(s); setSessions(sess); setWorksheets(w); setNotes(n); setExams(ex);
     } finally {
       setLoading(false);
     }
@@ -43,8 +45,8 @@ export function SidebarProvider({ children }) {
 
   return (
     <SidebarContext.Provider value={{
-      subjects, sessions, worksheets, notes, personas, loading,
-      refresh, setSubjects, setSessions, setWorksheets, setNotes,
+      subjects, sessions, worksheets, notes, exams, personas, loading,
+      refresh, setSubjects, setSessions, setWorksheets, setNotes, setExams,
       collapsed, toggleCollapsed,
     }}>
       {children}

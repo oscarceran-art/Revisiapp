@@ -115,6 +115,7 @@ export default function ChatStarterPage() {
             selectedIds={selected}
             onChange={setSelected}
             multi={pickerMulti}
+            onPersonasChanged={refreshPersonas}
           />
         </div>
 
