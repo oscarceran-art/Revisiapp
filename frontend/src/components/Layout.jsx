@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
 import { useTimer } from "@/context/TimerContext";
+import { useAuth } from "@/context/AuthContext";
 import { deleteSession, deleteWorksheet, deleteNote } from "@/lib/api";
 import { toast } from "sonner";
 import SearchBar from "@/components/SearchBar";
@@ -152,7 +153,13 @@ export default function Layout() {
   const navigate = useNavigate();
   const { subjects, sessions, worksheets, notes, collapsed, toggleCollapsed } = useSidebarData();
   const { state: timerState, setOpen: setTimerOpen } = useTimer();
+  const { user, logout } = useAuth();
   useExamReminders();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   const requestNotif = async () => {
     if (typeof Notification === "undefined") { toast.error("This browser doesn't support notifications"); return; }
@@ -243,6 +250,14 @@ export default function Layout() {
             >
               <Timer size={18} weight="regular" />
             </button>
+            {/* Logout - collapsed */}
+            <button
+              onClick={handleLogout}
+              title="Log out"
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors hover:bg-red-50 text-black/40 hover:text-red-500 mt-auto"
+            >
+              <SignOut size={18} weight="regular" />
+            </button>
           </div>
         ) : (
           <>
@@ -284,6 +299,21 @@ export default function Layout() {
                 <BookBookmark size={16} weight="regular" />
                 <span className="text-[14px] font-semibold">Manage subjects</span>
               </NavLink>
+
+              {/* Admin link — only visible to admins */}
+              {user?.is_admin && (
+                <NavLink
+                  to="/admin"
+                  data-testid="sidebar-admin-link"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mt-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                  }
+                >
+                  <ShieldCheck size={16} weight="regular" />
+                  <span className="text-[14px] font-semibold">Admin</span>
+                </NavLink>
+              )}
+
               <div className="mt-3 pt-3 border-t border-black/10 flex gap-2">
                 <button
                   onClick={() => setTimerOpen(!timerState.open)}
@@ -309,7 +339,24 @@ export default function Layout() {
                   </div>
                 )}
               </div>
-              
+
+              {/* User info + logout */}
+              <div className="mt-3 pt-3 border-t border-black/10 flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold truncate">{user?.username}</div>
+                  <div className="text-[11px] text-black/40">{user?.is_admin ? "Admin" : "Student"}</div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Log out"
+                  className="p-2 rounded-xl hover:bg-red-50 text-black/40 hover:text-red-500 transition-colors"
+                  data-testid="sidebar-logout"
+                  aria-label="Log out"
+                >
+                  <SignOut size={16} weight="regular" />
+                </button>
+              </div>
+
             </div>
           </>
         )}

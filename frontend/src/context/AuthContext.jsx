@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
       const authData = { token: data.token, user: data.user };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
       setAuth(authData);
-      return { ok: true };
+      return { ok: true, user: data.user }; // ← FIXED: return user so LoginPage can check is_admin
     } catch {
       return { ok: false, error: "Could not reach the server. Is the backend running?" };
     }

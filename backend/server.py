@@ -22,6 +22,8 @@ from docx import Document as DocxDocument
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+print("DEBUG KEY:", repr(os.environ.get('ANTHROPIC_API_KEY', 'NOT FOUND')))
+
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
@@ -213,8 +215,11 @@ def parse_datetime(value):
     return value
 
 
-async def get_subject(subject_id: str) -> Optional[dict]:
-    return await db.subjects.find_one({"id": subject_id}, {"_id": 0})
+async def get_subject(subject_id: str, user_id: Optional[str] = None) -> Optional[dict]:
+    q = {"id": subject_id}
+    if user_id:
+        q["user_id"] = user_id
+    return await db.subjects.find_one(q, {"_id": 0})
 
 
 def build_system_message(subject: Optional[dict]) -> str:
@@ -322,23 +327,28 @@ async def admin_reset_tokens(user_id: str, authorization: Optional[str] = Header
 
 # ---------- SUBJECTS ----------
 @api_router.get("/subjects", response_model=List[Subject])
-async def list_subjects():
-    docs = await db.subjects.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+async def list_subjects(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    docs = await db.subjects.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
     return docs
 
 
 @api_router.post("/subjects", response_model=Subject)
-async def create_subject(payload: SubjectCreate):
+async def create_subject(payload: SubjectCreate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     obj = Subject(**payload.model_dump())
-    await db.subjects.insert_one(serialize_doc(obj.model_dump()))
+    doc = serialize_doc(obj.model_dump())
+    doc["user_id"] = user["id"]
+    await db.subjects.insert_one(doc)
     return obj
 
 
 @api_router.get("/subjects/{subject_id}", response_model=Subject)
-async def get_subject_endpoint(subject_id: str):
-    doc = await get_subject(subject_id)
+async def get_subject_endpoint(subject_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    doc = await get_subject(subject_id, user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail="Subject not found")
     doc['created_at'] = parse_datetime(doc.get('created_at'))
@@ -346,30 +356,33 @@ async def get_subject_endpoint(subject_id: str):
 
 
 @api_router.patch("/subjects/{subject_id}", response_model=Subject)
-async def update_subject(subject_id: str, payload: SubjectUpdate):
+async def update_subject(subject_id: str, payload: SubjectUpdate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     update = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="No fields to update")
-    result = await db.subjects.update_one({"id": subject_id}, {"$set": update})
+    result = await db.subjects.update_one({"id": subject_id, "user_id": user["id"]}, {"$set": update})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Subject not found")
-    doc = await get_subject(subject_id)
+    doc = await get_subject(subject_id, user["id"])
     doc['created_at'] = parse_datetime(doc.get('created_at'))
     return doc
 
 
 @api_router.delete("/subjects/{subject_id}")
-async def delete_subject(subject_id: str):
-    result = await db.subjects.delete_one({"id": subject_id})
+async def delete_subject(subject_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    result = await db.subjects.delete_one({"id": subject_id, "user_id": user["id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Subject not found")
-    await db.chat_sessions.update_many({"subject_id": subject_id}, {"$set": {"subject_id": None}})
+    await db.chat_sessions.update_many({"subject_id": subject_id, "user_id": user["id"]}, {"$set": {"subject_id": None}})
     return {"ok": True}
 
 
 @api_router.post("/subjects/{subject_id}/upload")
-async def upload_subject_notes(subject_id: str, file: UploadFile = File(...), append: bool = Form(True)):
-    doc = await get_subject(subject_id)
+async def upload_subject_notes(subject_id: str, file: UploadFile = File(...), append: bool = Form(True), authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    doc = await get_subject(subject_id, user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail="Subject not found")
     raw = await file.read()
@@ -381,36 +394,42 @@ async def upload_subject_notes(subject_id: str, file: UploadFile = File(...), ap
         new_notes = new_notes + "\n\n--- " + (file.filename or 'file') + " ---\n" + text
     else:
         new_notes = text
-    await db.subjects.update_one({"id": subject_id}, {"$set": {"notes": new_notes}})
+    await db.subjects.update_one({"id": subject_id, "user_id": user["id"]}, {"$set": {"notes": new_notes}})
     return {"ok": True, "filename": file.filename, "characters": len(text)}
 
 
 # ---------- CHAT ----------
 @api_router.get("/chat/sessions", response_model=List[ChatSession])
-async def list_sessions():
-    docs = await db.chat_sessions.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+async def list_sessions(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    docs = await db.chat_sessions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
     return docs
 
 
 @api_router.post("/chat/sessions", response_model=ChatSession)
-async def create_session(payload: ChatSessionCreate):
+async def create_session(payload: ChatSessionCreate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     obj = ChatSession(**payload.model_dump())
-    await db.chat_sessions.insert_one(serialize_doc(obj.model_dump()))
+    doc = serialize_doc(obj.model_dump())
+    doc["user_id"] = user["id"]
+    await db.chat_sessions.insert_one(doc)
     return obj
 
 
 @api_router.delete("/chat/sessions/{session_id}")
-async def delete_session(session_id: str):
-    await db.chat_sessions.delete_one({"id": session_id})
+async def delete_session(session_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    await db.chat_sessions.delete_one({"id": session_id, "user_id": user["id"]})
     await db.chat_messages.delete_many({"session_id": session_id})
     return {"ok": True}
 
 
 @api_router.patch("/chat/sessions/{session_id}/settings", response_model=ChatSession)
-async def update_session_settings(session_id: str, payload: ChatSessionSettingsUpdate):
-    session = await db.chat_sessions.find_one({"id": session_id}, {"_id": 0})
+async def update_session_settings(session_id: str, payload: ChatSessionSettingsUpdate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    session = await db.chat_sessions.find_one({"id": session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     current = session.get('settings') or {}
@@ -460,7 +479,11 @@ def build_mode_instructions(settings: dict) -> str:
 
 
 @api_router.get("/chat/sessions/{session_id}/messages", response_model=List[ChatMessage])
-async def get_messages(session_id: str):
+async def get_messages(session_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    session = await db.chat_sessions.find_one({"id": session_id, "user_id": user["id"]}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
     docs = await db.chat_messages.find({"session_id": session_id}, {"_id": 0}).sort("created_at", 1).to_list(2000)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
@@ -468,11 +491,12 @@ async def get_messages(session_id: str):
 
 
 @api_router.post("/chat/send", response_model=ChatMessage)
-async def send_message(payload: ChatSendRequest):
+async def send_message(payload: ChatSendRequest, authorization: Optional[str] = Header(None)):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
 
-    session = await db.chat_sessions.find_one({"id": payload.session_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    session = await db.chat_sessions.find_one({"id": payload.session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -593,13 +617,14 @@ def parse_worksheet_json(text: str) -> dict:
 
 
 @api_router.post("/worksheets/generate", response_model=Worksheet)
-async def generate_worksheet(req: WorksheetRequest):
+async def generate_worksheet(req: WorksheetRequest, authorization: Optional[str] = Header(None)):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+    user = await auth_module.get_current_user(authorization)
 
     subject = None
     if req.subject_id:
-        subject = await get_subject(req.subject_id)
+        subject = await get_subject(req.subject_id, user["id"])
 
     prompt = build_worksheet_prompt(req, subject)
     try:
@@ -653,13 +678,16 @@ async def generate_worksheet(req: WorksheetRequest):
         duration_minutes=int(duration),
         questions=questions,
     )
-    await db.worksheets.insert_one(serialize_doc(ws.model_dump()))
+    ws_doc = serialize_doc(ws.model_dump())
+    ws_doc["user_id"] = user["id"]
+    await db.worksheets.insert_one(ws_doc)
     return ws
 
 
 @api_router.get("/worksheets", response_model=List[Worksheet])
-async def list_worksheets():
-    docs = await db.worksheets.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+async def list_worksheets(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    docs = await db.worksheets.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
         if d.get('marking_result') and isinstance(d['marking_result'].get('marked_at'), str):
@@ -668,8 +696,9 @@ async def list_worksheets():
 
 
 @api_router.get("/worksheets/{worksheet_id}", response_model=Worksheet)
-async def get_worksheet(worksheet_id: str):
-    doc = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+async def get_worksheet(worksheet_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    doc = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
     doc['created_at'] = parse_datetime(doc.get('created_at'))
@@ -684,10 +713,11 @@ MARKER_SYSTEM = (
 
 
 @api_router.post("/worksheets/{worksheet_id}/mark", response_model=Worksheet)
-async def mark_worksheet(worksheet_id: str, payload: MarkRequest):
+async def mark_worksheet(worksheet_id: str, payload: MarkRequest, authorization: Optional[str] = Header(None)):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
-    doc = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    doc = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
 
@@ -781,17 +811,19 @@ async def mark_worksheet(worksheet_id: str, payload: MarkRequest):
 
 
 @api_router.delete("/worksheets/{worksheet_id}")
-async def delete_worksheet(worksheet_id: str):
-    res = await db.worksheets.delete_one({"id": worksheet_id})
+async def delete_worksheet(worksheet_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    res = await db.worksheets.delete_one({"id": worksheet_id, "user_id": user["id"]})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Worksheet not found")
     return {"ok": True}
 
 
 @api_router.get("/review/queue")
-async def review_queue():
+async def review_queue(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     docs = await db.worksheets.find(
-        {"marking_result": {"$ne": None}}, {"_id": 0}
+        {"marking_result": {"$ne": None}, "user_id": user["id"]}, {"_id": 0}
     ).sort("created_at", -1).to_list(200)
     now = datetime.now(timezone.utc)
     items = []
@@ -848,9 +880,10 @@ class ReviewMarkRequest(BaseModel):
 
 
 @api_router.post("/review/mark")
-async def review_mark(payload: ReviewMarkRequest):
+async def review_mark(payload: ReviewMarkRequest, authorization: Optional[str] = Header(None)):
     intervals_days = [1, 3, 7, 14, 30, 60]
-    doc = await db.worksheets.find_one({"id": payload.worksheet_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    doc = await db.worksheets.find_one({"id": payload.worksheet_id, "user_id": user["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
     review_state = doc.get('review_state', {})
@@ -1115,8 +1148,9 @@ from fastapi.responses import StreamingResponse
 
 
 @api_router.post("/chat/send-user-message", response_model=ChatMessage)
-async def send_user_message(req: SendUserMessageRequest):
-    session = await db.chat_sessions.find_one({"id": req.session_id}, {"_id": 0})
+async def send_user_message(req: SendUserMessageRequest, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    session = await db.chat_sessions.find_one({"id": req.session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     user_msg = ChatMessage(session_id=req.session_id, role="user", content=req.message)
@@ -1131,10 +1165,11 @@ async def send_user_message(req: SendUserMessageRequest):
 
 
 @api_router.post("/chat/stream-reply")
-async def stream_reply(req: StreamReplyRequest):
+async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = Header(None)):
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
-    session = await db.chat_sessions.find_one({"id": req.session_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    session = await db.chat_sessions.find_one({"id": req.session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -1267,10 +1302,11 @@ class StudyNoteRequest(BaseModel):
 
 
 @api_router.post("/notes/generate", response_model=StudyNote)
-async def generate_notes(req: StudyNoteRequest):
+async def generate_notes(req: StudyNoteRequest, authorization: Optional[str] = Header(None)):
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
-    subject = await get_subject(req.subject_id) if req.subject_id else None
+    user = await auth_module.get_current_user(authorization)
+    subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
     depth_map = {
         "overview": "Concise overview - 3 short sections, max 4 bullets each, no advanced jargon.",
         "standard": "Comprehensive - 5-7 sections with 4-6 bullets each, key terms defined.",
@@ -1321,7 +1357,9 @@ async def generate_notes(req: StudyNoteRequest):
         sections=[StudyNoteSection(heading=s.get('heading', ''), bullets=s.get('bullets', [])) for s in data.get('sections', [])],
         key_terms=[{"term": t.get('term', ''), "definition": t.get('definition', '')} for t in data.get('key_terms', [])],
     )
-    await db.study_notes.insert_one(serialize_doc(note.model_dump()))
+    note_doc = serialize_doc(note.model_dump())
+    note_doc["user_id"] = user["id"]
+    await db.study_notes.insert_one(note_doc)
     return note
 
 
@@ -1349,14 +1387,15 @@ async def _build_chat_transcript(session_id: str, max_chars: int = 18000) -> tup
 
 
 @api_router.post("/chat/sessions/{session_id}/morning-quiz", response_model=Worksheet)
-async def morning_quiz(session_id: str):
+async def morning_quiz(session_id: str, authorization: Optional[str] = Header(None)):
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    user = await auth_module.get_current_user(authorization)
     transcript, session = await _build_chat_transcript(session_id)
 
     subject = None
     if session.get('subject_id'):
-        subject = await get_subject(session['subject_id'])
+        subject = await get_subject(session['subject_id'], user["id"])
 
     prompt = (
         "Below is a transcript of a revision chat between a student and a tutor. "
@@ -1411,14 +1450,15 @@ async def morning_quiz(session_id: str):
         duration_minutes=int(data.get('duration_minutes') or 10),
         questions=questions,
     )
-    await db.worksheets.insert_one(serialize_doc(ws.model_dump()))
+    await db.worksheets.insert_one({**serialize_doc(ws.model_dump()), "user_id": user["id"]})
     return ws
 
 
 @api_router.post("/chat/sessions/{session_id}/summary", response_model=StudyNote)
-async def summarise_chat(session_id: str):
+async def summarise_chat(session_id: str, authorization: Optional[str] = Header(None)):
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    user = await auth_module.get_current_user(authorization)
     transcript, session = await _build_chat_transcript(session_id)
     subject = None
     if session.get('subject_id'):
@@ -1458,21 +1498,23 @@ async def summarise_chat(session_id: str):
         sections=[StudyNoteSection(heading=s.get('heading', ''), bullets=s.get('bullets', [])) for s in data.get('sections', [])],
         key_terms=[{"term": t.get('term', ''), "definition": t.get('definition', '')} for t in data.get('key_terms', [])],
     )
-    await db.study_notes.insert_one(serialize_doc(note.model_dump()))
+    await db.study_notes.insert_one({**serialize_doc(note.model_dump()), "user_id": user["id"]})
     return note
 
 
 @api_router.get("/notes", response_model=List[StudyNote])
-async def list_notes():
-    docs = await db.study_notes.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+async def list_notes(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    docs = await db.study_notes.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
     return docs
 
 
 @api_router.get("/notes/{note_id}", response_model=StudyNote)
-async def get_note(note_id: str):
-    doc = await db.study_notes.find_one({"id": note_id}, {"_id": 0})
+async def get_note(note_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    doc = await db.study_notes.find_one({"id": note_id, "user_id": user["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Notes not found")
     doc['created_at'] = parse_datetime(doc.get('created_at'))
@@ -1480,8 +1522,9 @@ async def get_note(note_id: str):
 
 
 @api_router.delete("/notes/{note_id}")
-async def delete_note(note_id: str):
-    res = await db.study_notes.delete_one({"id": note_id})
+async def delete_note(note_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    res = await db.study_notes.delete_one({"id": note_id, "user_id": user["id"]})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Notes not found")
     return {"ok": True}
@@ -1494,8 +1537,9 @@ class NoteWorksheetRequest(BaseModel):
 
 
 @api_router.post("/notes/{note_id}/worksheet", response_model=Worksheet)
-async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest):
-    note = await db.study_notes.find_one({"id": note_id}, {"_id": 0})
+async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    note = await db.study_notes.find_one({"id": note_id, "user_id": user["id"]}, {"_id": 0})
     if not note:
         raise HTTPException(status_code=404, detail="Notes not found")
     notes_text_parts = [f"Title: {note['title']}", f"Summary: {note.get('summary', '')}"]
@@ -1550,7 +1594,7 @@ async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest):
         duration_minutes=int(data.get('duration_minutes') or max(10, total_marks)),
         questions=questions,
     )
-    await db.worksheets.insert_one(serialize_doc(ws.model_dump()))
+    await db.worksheets.insert_one({**serialize_doc(ws.model_dump()), "user_id": user["id"]})
     return ws
 
 
@@ -1567,10 +1611,11 @@ class CheatSheet(BaseModel):
 
 
 @api_router.post("/worksheets/{worksheet_id}/cheat-sheet", response_model=CheatSheet)
-async def generate_cheat_sheet(worksheet_id: str):
+async def generate_cheat_sheet(worksheet_id: str, authorization: Optional[str] = Header(None)):
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
-    ws = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    ws = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]}, {"_id": 0})
     if not ws:
         raise HTTPException(status_code=404, detail="Worksheet not found")
 
@@ -1637,7 +1682,12 @@ async def generate_cheat_sheet(worksheet_id: str):
 
 
 @api_router.get("/worksheets/{worksheet_id}/cheat-sheet", response_model=CheatSheet)
-async def get_cheat_sheet(worksheet_id: str):
+async def get_cheat_sheet(worksheet_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    # Verify the worksheet belongs to this user
+    ws = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]}, {"_id": 0})
+    if not ws:
+        raise HTTPException(status_code=404, detail="Worksheet not found")
     doc = await db.cheat_sheets.find_one({"worksheet_id": worksheet_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Cheat sheet not found")
@@ -1687,18 +1737,20 @@ async def _enrich_exam(d: dict) -> dict:
 
 
 @api_router.get("/exams", response_model=List[Exam])
-async def list_exams():
-    docs = await db.exams.find({}, {"_id": 0}).to_list(500)
+async def list_exams(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    docs = await db.exams.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
     out = [await _enrich_exam(d) for d in docs]
     out.sort(key=lambda d: d.get('exam_date', ''))
     return out
 
 
 @api_router.post("/exams", response_model=Exam)
-async def create_exam(payload: ExamCreate):
+async def create_exam(payload: ExamCreate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     subject_name = ""
     if payload.subject_id:
-        sub = await get_subject(payload.subject_id)
+        sub = await get_subject(payload.subject_id, user["id"])
         if sub:
             subject_name = sub.get('name', '')
     obj = Exam(
@@ -1709,19 +1761,22 @@ async def create_exam(payload: ExamCreate):
         location=payload.location or "",
         notes=payload.notes or "",
     )
-    await db.exams.insert_one(serialize_doc(obj.model_dump()))
+    exam_doc = serialize_doc(obj.model_dump())
+    exam_doc["user_id"] = user["id"]
+    await db.exams.insert_one(exam_doc)
     return obj
 
 
 @api_router.patch("/exams/{exam_id}", response_model=Exam)
-async def update_exam(exam_id: str, payload: ExamUpdate):
+async def update_exam(exam_id: str, payload: ExamUpdate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     update = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="No fields to update")
     if 'subject_id' in update:
-        sub = await get_subject(update['subject_id']) if update['subject_id'] else None
+        sub = await get_subject(update['subject_id'], user["id"]) if update['subject_id'] else None
         update['subject_name'] = sub.get('name', '') if sub else ''
-    result = await db.exams.update_one({"id": exam_id}, {"$set": update})
+    result = await db.exams.update_one({"id": exam_id, "user_id": user["id"]}, {"$set": update})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Exam not found")
     doc = await db.exams.find_one({"id": exam_id}, {"_id": 0})
@@ -1729,8 +1784,9 @@ async def update_exam(exam_id: str, payload: ExamUpdate):
 
 
 @api_router.delete("/exams/{exam_id}")
-async def delete_exam(exam_id: str):
-    res = await db.exams.delete_one({"id": exam_id})
+async def delete_exam(exam_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    res = await db.exams.delete_one({"id": exam_id, "user_id": user["id"]})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Exam not found")
     await db.revision_plans.delete_many({"exam_id": exam_id})
@@ -1739,8 +1795,9 @@ async def delete_exam(exam_id: str):
 
 
 @api_router.post("/exams/{exam_id}/debrief", response_model=ChatSession)
-async def start_exam_debrief(exam_id: str):
-    exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+async def start_exam_debrief(exam_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    exam = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
@@ -1769,7 +1826,9 @@ async def start_exam_debrief(exam_id: str):
         kind="debrief",
         meta={"exam_id": exam_id, "exam_name": exam['name'], "exam_date": exam.get('exam_date', '')},
     )
-    await db.chat_sessions.insert_one(serialize_doc(session.model_dump()))
+    session_doc = serialize_doc(session.model_dump())
+    session_doc["user_id"] = user["id"]
+    await db.chat_sessions.insert_one(session_doc)
 
     opener = ChatMessage(
         session_id=session.id,
@@ -1787,10 +1846,11 @@ async def start_exam_debrief(exam_id: str):
 
 
 @api_router.get("/exams/{exam_id}/morning-brief")
-async def get_morning_brief(exam_id: str):
+async def get_morning_brief(exam_id: str, authorization: Optional[str] = Header(None)):
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
-    exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    exam = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
@@ -1877,7 +1937,12 @@ class PlanTaskToggle(BaseModel):
 
 
 @api_router.get("/exams/{exam_id}/plan", response_model=Optional[RevisionPlan])
-async def get_plan(exam_id: str):
+async def get_plan(exam_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    # verify exam ownership
+    exam = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
     doc = await db.revision_plans.find_one({"exam_id": exam_id}, {"_id": 0})
     if not doc:
         return None
@@ -1886,10 +1951,11 @@ async def get_plan(exam_id: str):
 
 
 @api_router.post("/exams/{exam_id}/plan", response_model=RevisionPlan)
-async def generate_plan(exam_id: str):
+async def generate_plan(exam_id: str, authorization: Optional[str] = Header(None)):
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
-    exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    exam = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
@@ -1914,8 +1980,11 @@ async def generate_plan(exam_id: str):
         if subject.get('notes'):
             subject_block += f"Reference notes:\n---\n{subject['notes'][:4000]}\n---\n"
 
-    note_filter = {"subject_id": exam['subject_id']} if exam.get('subject_id') else {}
-    ws_filter = {"subject_id": exam['subject_id']} if exam.get('subject_id') else {}
+    note_filter = {"user_id": exam.get("user_id")}
+    ws_filter = {"user_id": exam.get("user_id")}
+    if exam.get('subject_id'):
+        note_filter["subject_id"] = exam['subject_id']
+        ws_filter["subject_id"] = exam['subject_id']
     existing_notes = await db.study_notes.find(note_filter, {"_id": 0, "id": 1, "title": 1, "topic": 1}).sort("created_at", -1).to_list(40)
     existing_ws = await db.worksheets.find(ws_filter, {"_id": 0, "id": 1, "title": 1, "topic": 1}).sort("created_at", -1).to_list(40)
 
@@ -1988,7 +2057,11 @@ async def generate_plan(exam_id: str):
 
 
 @api_router.patch("/exams/{exam_id}/plan/task", response_model=RevisionPlan)
-async def toggle_plan_task(exam_id: str, payload: PlanTaskToggle):
+async def toggle_plan_task(exam_id: str, payload: PlanTaskToggle, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    exam = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
     plan = await db.revision_plans.find_one({"exam_id": exam_id}, {"_id": 0})
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -2012,7 +2085,11 @@ class GenerateTaskContent(BaseModel):
 
 
 @api_router.post("/exams/{exam_id}/plan/task/generate", response_model=RevisionPlan)
-async def generate_task_content(exam_id: str, payload: GenerateTaskContent):
+async def generate_task_content(exam_id: str, payload: GenerateTaskContent, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    exam_check = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
+    if not exam_check:
+        raise HTTPException(status_code=404, detail="Exam not found")
     plan = await db.revision_plans.find_one({"exam_id": exam_id}, {"_id": 0})
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -2036,7 +2113,7 @@ async def generate_task_content(exam_id: str, payload: GenerateTaskContent):
         if not topic:
             raise HTTPException(status_code=400, detail="No topic for notes")
         note_req = StudyNoteRequest(subject_id=subject_id, topic=topic, depth="standard")
-        note = await generate_notes(note_req)
+        note = await generate_notes(note_req, authorization=f"Bearer {auth_module.create_token(user['id'], user['username'])}")
         task['note_id'] = note.id
         task['auto_note_topic'] = None
     else:
@@ -2050,7 +2127,7 @@ async def generate_task_content(exam_id: str, payload: GenerateTaskContent):
             num_questions=6, difficulty="medium", question_type="mixed",
             extra_instructions=f"This worksheet is for revision-plan task: '{task.get('text')}'. Keep it tight.",
         )
-        ws = await generate_worksheet(ws_req)
+        ws = await generate_worksheet(ws_req, authorization=f"Bearer {auth_module.create_token(user['id'], user['username'])}")
         task['worksheet_id'] = ws.id
         task['auto_worksheet_topic'] = None
 
@@ -2069,10 +2146,11 @@ class ConfidenceRating(BaseModel):
 
 
 @api_router.post("/worksheets/{worksheet_id}/confidence", response_model=Worksheet)
-async def set_worksheet_confidence(worksheet_id: str, payload: ConfidenceRating):
+async def set_worksheet_confidence(worksheet_id: str, payload: ConfidenceRating, authorization: Optional[str] = Header(None)):
     if payload.rating < 1 or payload.rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be 1-5")
-    doc = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
+    user = await auth_module.get_current_user(authorization)
+    doc = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
     await db.worksheets.update_one(
@@ -2089,7 +2167,8 @@ async def set_worksheet_confidence(worksheet_id: str, payload: ConfidenceRating)
 
 # ---------- SEARCH ----------
 @api_router.get("/search")
-async def search(q: str = ""):
+async def search(q: str = "", authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     q = (q or "").strip().lower()
     if not q:
         return {"chats": [], "notes": [], "worksheets": [], "subjects": [], "exams": []}
@@ -2097,11 +2176,12 @@ async def search(q: str = ""):
     def hit(text: Optional[str]) -> bool:
         return bool(text) and q in str(text).lower()
 
-    sessions = await db.chat_sessions.find({}, {"_id": 0}).to_list(500)
-    notes = await db.study_notes.find({}, {"_id": 0}).to_list(500)
-    worksheets = await db.worksheets.find({}, {"_id": 0}).to_list(500)
-    subjects = await db.subjects.find({}, {"_id": 0}).to_list(500)
-    exams = await db.exams.find({}, {"_id": 0}).to_list(500)
+    uid = user["id"]
+    sessions = await db.chat_sessions.find({"user_id": uid}, {"_id": 0}).to_list(500)
+    notes = await db.study_notes.find({"user_id": uid}, {"_id": 0}).to_list(500)
+    worksheets = await db.worksheets.find({"user_id": uid}, {"_id": 0}).to_list(500)
+    subjects = await db.subjects.find({"user_id": uid}, {"_id": 0}).to_list(500)
+    exams = await db.exams.find({"user_id": uid}, {"_id": 0}).to_list(500)
 
     return {
         "chats": [

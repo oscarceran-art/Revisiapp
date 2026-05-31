@@ -20,14 +20,13 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    // Simulate a brief async delay for feel
     await new Promise((r) => setTimeout(r, 320));
 
-    const result = login(username, password);
+    const result = await login(username, password); // ← FIXED: added await (login is async)
     setLoading(false);
 
     if (result.ok) {
-      navigate(from, { replace: true });
+      navigate(result.user?.is_admin ? "/admin" : from, { replace: true }); // ← FIXED: admins go to /admin
     } else {
       setError(result.error);
     }

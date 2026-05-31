@@ -43,7 +43,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route element={<RequireAuth><Layout /></RequireAuth>}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={user?.is_admin ? <Navigate to="/admin" replace /> : <HomePage />} />
           <Route path="/chat/new" element={<ChatStarterPage />} />
           <Route path="/chat/:sessionId" element={<ChatPage />} />
           <Route path="/subjects" element={<SubjectsPage />} />
