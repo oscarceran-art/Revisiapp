@@ -309,9 +309,7 @@ export default function Layout() {
                   </div>
                 )}
               </div>
-              <div className="px-3 pt-3 pb-1 text-[10px] text-black/35 tracking-wide">
-                Powered by Claude Haiku 4.5
-              </div>
+              
             </div>
           </>
         )}

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,8 +13,8 @@ import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 from anthropic import AsyncAnthropic
+import auth as auth_module
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 
@@ -25,6 +25,8 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+auth_module.set_db(db)
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -62,8 +64,8 @@ class SubjectUpdate(BaseModel):
 class ChatSessionSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
     ai_mode: Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"] = "normal"
-    strictness: int = 5  # 1-10
-    context_window: int = 0  # 0 = all, otherwise N most recent messages
+    strictness: int = 5
+    context_window: int = 0
 
 
 class ChatSession(BaseModel):
@@ -74,8 +76,8 @@ class ChatSession(BaseModel):
     personas: List[str] = Field(default_factory=list)
     mode: Literal["solo", "group", "feynman"] = "solo"
     settings: ChatSessionSettings = Field(default_factory=ChatSessionSettings)
-    system_prompt_override: Optional[str] = None  # used for special sessions (e.g. exam debrief)
-    kind: Optional[str] = None  # e.g. "debrief"
+    system_prompt_override: Optional[str] = None
+    kind: Optional[str] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -110,7 +112,7 @@ class SendUserMessageRequest(BaseModel):
 
 class StreamReplyRequest(BaseModel):
     session_id: str
-    persona_id: Optional[str] = None  # None = default tutor
+    persona_id: Optional[str] = None
 
 
 class ChatSendRequest(BaseModel):
@@ -174,12 +176,27 @@ class Worksheet(BaseModel):
 
 
 class MarkRequest(BaseModel):
-    answers: Dict[str, str]  # {question_number: student_answer}
+    answers: Dict[str, str]
+
+
+# ---------- AUTH / ADMIN MODELS ----------
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+class UserLimitUpdate(BaseModel):
+    token_limit_daily: Optional[int] = None
+    token_limit_weekly: Optional[int] = None
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
 
 
 # ---------- HELPERS ----------
 def serialize_doc(doc: dict) -> dict:
-    """Serialize datetime to ISO string for MongoDB storage."""
     out = dict(doc)
     for k, v in out.items():
         if isinstance(v, datetime):
@@ -232,7 +249,6 @@ def extract_text_from_upload(filename: str, raw: bytes) -> str:
     if name.endswith('.docx'):
         doc = DocxDocument(BytesIO(raw))
         return "\n".join(p.text for p in doc.paragraphs).strip()
-    # txt / md / fallback
     try:
         return raw.decode('utf-8', errors='ignore').strip()
     except Exception:
@@ -248,6 +264,60 @@ async def root():
 @api_router.get("/health")
 async def health():
     return {"ok": True, "has_key": bool(ANTHROPIC_API_KEY)}
+
+
+# ---------- AUTH ROUTES ----------
+@api_router.post("/auth/login")
+async def login(req: LoginRequest):
+    return await auth_module.login_user(req.username, req.password)
+
+@api_router.post("/auth/register")
+async def register(req: RegisterRequest):
+    user = await auth_module.create_user(req.username, req.password)
+    return await auth_module.login_user(req.username, req.password)
+
+@api_router.get("/auth/me")
+async def me(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    return {k: v for k, v in user.items() if k != "password_hash"}
+
+
+# ---------- ADMIN ROUTES ----------
+@api_router.get("/admin/users")
+async def admin_list_users(authorization: Optional[str] = Header(None)):
+    await auth_module.require_admin(authorization)
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return users
+
+@api_router.patch("/admin/users/{user_id}")
+async def admin_update_user(user_id: str, payload: UserLimitUpdate, authorization: Optional[str] = Header(None)):
+    await auth_module.require_admin(authorization)
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    await db.users.update_one({"id": user_id}, {"$set": updates})
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return user
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, authorization: Optional[str] = Header(None)):
+    admin = await auth_module.require_admin(authorization)
+    if admin["id"] == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    await db.users.delete_one({"id": user_id})
+    return {"ok": True}
+
+@api_router.post("/admin/users")
+async def admin_create_user(req: RegisterRequest, authorization: Optional[str] = Header(None)):
+    await auth_module.require_admin(authorization)
+    user = await auth_module.create_user(req.username, req.password)
+    return {k: v for k, v in user.items() if k != "password_hash"}
+
+@api_router.post("/admin/users/{user_id}/reset-tokens")
+async def admin_reset_tokens(user_id: str, authorization: Optional[str] = Header(None)):
+    await auth_module.require_admin(authorization)
+    await db.users.update_one({"id": user_id}, {"$set": {"tokens_used_today": 0, "tokens_used_week": 0}})
+    return {"ok": True}
 
 
 # ---------- SUBJECTS ----------
@@ -293,7 +363,6 @@ async def delete_subject(subject_id: str):
     result = await db.subjects.delete_one({"id": subject_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Subject not found")
-    # Also clean up sessions/messages tied to it (optional)
     await db.chat_sessions.update_many({"subject_id": subject_id}, {"$set": {"subject_id": None}})
     return {"ok": True}
 
@@ -351,7 +420,6 @@ async def update_session_settings(session_id: str, payload: ChatSessionSettingsU
     if 'context_window' in updates:
         updates['context_window'] = max(0, int(updates['context_window']))
     merged = {**current, **updates}
-    # validate via pydantic
     merged_model = ChatSessionSettings(**merged)
     await db.chat_sessions.update_one(
         {"id": session_id},
@@ -369,21 +437,21 @@ def build_mode_instructions(settings: dict) -> str:
         "normal": "Be a patient, friendly tutor. Explain clearly, give examples, and check understanding occasionally.",
         "quiz": "QUIZ MODE: Take the lead. Ask the student one focused question at a time about the topic. After they answer, give a short verdict, brief explanation, and immediately ask the next question. Aim to teach them through questioning.",
         "socratic": "SOCRATIC MODE: Never give direct answers. Always respond with a guiding question that helps the student reason their way to the answer. Affirm progress, but keep the responsibility on them to think.",
-        "flashcard": "FLASHCARD MODE: Each turn, give ONE flashcard in this format — 'Q: <prompt>'. Wait for the student's answer. Then reveal 'A: <answer>' and a 1-sentence note. Then give the next card. Keep cards punchy.",
+        "flashcard": "FLASHCARD MODE: Each turn, give ONE flashcard in this format - 'Q: <prompt>'. Wait for the student's answer. Then reveal 'A: <answer>' and a 1-sentence note. Then give the next card. Keep cards punchy.",
         "exam_prep": "EXAM PREP MODE: Behave like an exam coach. Use exam-board language, mark schemes, command words (state, describe, explain, evaluate), and award marks out of clear totals. Always end with a quick 'next step to revise'.",
         "eli5": "ELI5 MODE: Explain like the student is 5 years old. Use everyday analogies, very short sentences, no jargon. Always include a fun, vivid example.",
     }
     strict_text = {
         1: "Be extremely lenient: accept rough answers, celebrate effort, never correct minor issues.",
-        2: "Be very lenient — accept most answers, only correct major mistakes.",
-        3: "Be lenient — gentle nudges on errors, focus on effort.",
-        4: "Be relaxed — point out errors but don't dwell on them.",
-        5: "Be balanced — fair, point out mistakes clearly but stay warm.",
-        6: "Be a little firm — expect precise language.",
-        7: "Be firm — demand precise language and complete reasoning.",
-        8: "Be strict — call out every imprecision and missing step.",
-        9: "Be very strict — exam-marker rigour, deduct for any vague phrasing.",
-        10: "Be extremely strict — zero tolerance for imprecision, every word must be exam-perfect.",
+        2: "Be very lenient - accept most answers, only correct major mistakes.",
+        3: "Be lenient - gentle nudges on errors, focus on effort.",
+        4: "Be relaxed - point out errors but don't dwell on them.",
+        5: "Be balanced - fair, point out mistakes clearly but stay warm.",
+        6: "Be a little firm - expect precise language.",
+        7: "Be firm - demand precise language and complete reasoning.",
+        8: "Be strict - call out every imprecision and missing step.",
+        9: "Be very strict - exam-marker rigour, deduct for any vague phrasing.",
+        10: "Be extremely strict - zero tolerance for imprecision, every word must be exam-perfect.",
     }
     return (
         f"\n\nINTERACTION MODE: {mode_text.get(ai_mode, mode_text['normal'])}"
@@ -412,18 +480,15 @@ async def send_message(payload: ChatSendRequest):
     if session.get('subject_id'):
         subject = await get_subject(session['subject_id'])
 
-    # Save user message
     user_msg = ChatMessage(session_id=payload.session_id, role="user", content=payload.message)
     await db.chat_messages.insert_one(serialize_doc(user_msg.model_dump()))
 
-    # Auto-title first message
     msg_count = await db.chat_messages.count_documents({"session_id": payload.session_id})
     if msg_count == 1 and (session.get('title') in (None, '', 'New chat')):
         title = payload.message.strip()[:60]
         await db.chat_sessions.update_one({"id": payload.session_id}, {"$set": {"title": title}})
 
     system_message = build_system_message(subject)
-    # Load full message history for proper multi-turn context
     history_docs = await db.chat_messages.find(
         {"session_id": payload.session_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(2000)
@@ -477,33 +542,31 @@ def build_worksheet_prompt(req: WorksheetRequest, subject: Optional[dict]) -> st
     parts.append(
         "Return ONLY a JSON object with this exact shape (proper exam paper structure):\n"
         "{\n"
-        '  "title": "<exam-style title, e.g. \'Biology Paper 1: Cell Biology\'>",\n'
-        '  "instructions": "<2-4 short bullet-style sentences for the front page: what to do, equipment allowed, etc.>",\n'
-        '  "duration_minutes": <integer estimated minutes>,\n'
-        '  "total_marks": <integer total across all questions>,\n'
+        '  "title": "<exam-style title>",\n'
+        '  "instructions": "<2-4 short bullet-style sentences>",\n'
+        '  "duration_minutes": <integer>,\n'
+        '  "total_marks": <integer>,\n'
         '  "questions": [\n'
         '    {\n'
         '      "number": 1,\n'
         '      "type": "multiple_choice" | "short_answer" | "long_answer",\n'
         '      "question": "<the question>",\n'
-        '      "options": ["A) ...", "B) ...", "C) ...", "D) ..."]  (only for multiple_choice, else omit or null),\n'
-        '      "marks": <integer marks for this question: MCQ=1, short_answer=2-4, long_answer=5-10>,\n'
-        '      "answer": "<the correct/model answer; for MCQ use the letter and full text; for long answer include key points expected>",\n'
-        '      "explanation": "<1-3 sentence markscheme notes on what earns marks>"\n'
+        '      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
+        '      "marks": <integer>,\n'
+        '      "answer": "<model answer>",\n'
+        '      "explanation": "<1-3 sentence markscheme notes>"\n'
         '    }\n'
         '  ]\n'
         '}\n'
-        "Total_marks MUST equal the sum of all question marks. Do not wrap in code fences. Do not include any text outside the JSON."
+        "Do not wrap in code fences. Do not include any text outside the JSON."
     )
     return "\n\n".join(parts)
 
 
 def parse_worksheet_json(text: str) -> dict:
-    # Strip code fences if present
     cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
-    # Extract first {...} block (greedy to last brace)
     match = re.search(r"\{[\s\S]*\}", cleaned)
     if not match:
         raise ValueError("No JSON object found in model output")
@@ -511,22 +574,17 @@ def parse_worksheet_json(text: str) -> dict:
     try:
         return json.loads(blob)
     except json.JSONDecodeError:
-        # Repair attempts for truncated/unescaped output (common with long generations)
-        # 1. Trim trailing garbage after the last valid closing brace by progressively shrinking
         for end in range(len(blob), 0, -1):
             candidate = blob[:end]
-            # Quick balance check: count quotes / braces / brackets
             try:
                 return json.loads(candidate)
             except json.JSONDecodeError:
                 pass
             if end < len(blob) - 800:
                 break
-        # 2. Try closing open arrays/braces
         opens_obj = blob.count('{') - blob.count('}')
         opens_arr = blob.count('[') - blob.count(']')
         repair = blob.rstrip().rstrip(',')
-        # if string is unterminated, close it
         quotes = len(re.findall(r'(?<!\\)"', repair))
         if quotes % 2 == 1:
             repair += '"'
@@ -544,15 +602,14 @@ async def generate_worksheet(req: WorksheetRequest):
         subject = await get_subject(req.subject_id)
 
     prompt = build_worksheet_prompt(req, subject)
-    session_id = f"worksheet-{uuid.uuid4()}"
-    chat = LlmChat(
-        api_key=ANTHROPIC_API_KEY,
-        session_id=session_id,
-        system_message=WORKSHEET_SYSTEM,
-    ).with_model("anthropic", CLAUDE_MODEL)
-
     try:
-        raw = await chat.send_message(UserMessage(text=prompt))
+        response = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=4096,
+            system=WORKSHEET_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.content[0].text
     except Exception as e:
         logger.exception("Claude error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -634,7 +691,6 @@ async def mark_worksheet(worksheet_id: str, payload: MarkRequest):
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
 
-    # Build marking prompt
     lines = [
         f"Mark this {doc.get('subject_name') or 'revision'} worksheet titled \"{doc['title']}\".",
         "For each question, compare the student's answer to the model answer and award marks fairly.",
@@ -657,21 +713,21 @@ async def mark_worksheet(worksheet_id: str, payload: MarkRequest):
         "\nReturn ONLY this JSON:\n"
         "{\n"
         '  "per_question": [\n'
-        '    {"number": <int>, "awarded": <number, can be decimal>, "out_of": <int>, "feedback": "<1-2 sentences>"}\n'
+        '    {"number": <int>, "awarded": <number>, "out_of": <int>, "feedback": "<1-2 sentences>"}\n'
         '  ],\n'
-        '  "overall_feedback": "<2-3 sentences summarising strengths and what to revise next>"\n'
+        '  "overall_feedback": "<2-3 sentences>"\n'
         "}"
     )
     prompt = "\n".join(lines)
 
-    chat = LlmChat(
-        api_key=ANTHROPIC_API_KEY,
-        session_id=f"mark-{uuid.uuid4()}",
-        system_message=MARKER_SYSTEM,
-    ).with_model("anthropic", CLAUDE_MODEL)
-
     try:
-        raw = await chat.send_message(UserMessage(text=prompt))
+        response = await anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=2048,
+            system=MARKER_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.content[0].text
     except Exception as e:
         logger.exception("Marker error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -734,8 +790,6 @@ async def delete_worksheet(worksheet_id: str):
 
 @api_router.get("/review/queue")
 async def review_queue():
-    """Spaced repetition: surface questions answered wrong, with next-review timing.
-    Simple SM-2-lite: 1 day after first miss, then 3, 7, 14 days as user re-reviews."""
     docs = await db.worksheets.find(
         {"marking_result": {"$ne": None}}, {"_id": 0}
     ).sort("created_at", -1).to_list(200)
@@ -753,7 +807,7 @@ async def review_queue():
                 marked_at = now
         elif not marked_at:
             marked_at = now
-        review_state = w.get('review_state', {})  # {question_number: {"level": int, "next_due": iso}}
+        review_state = w.get('review_state', {})
         for p in per_q:
             if p['awarded'] >= p['out_of']:
                 continue
@@ -795,7 +849,6 @@ class ReviewMarkRequest(BaseModel):
 
 @api_router.post("/review/mark")
 async def review_mark(payload: ReviewMarkRequest):
-    """Advance or reset spaced-rep level for a question."""
     intervals_days = [1, 3, 7, 14, 30, 60]
     doc = await db.worksheets.find_one({"id": payload.worksheet_id}, {"_id": 0})
     if not doc:
@@ -822,18 +875,18 @@ async def review_mark(payload: ReviewMarkRequest):
 PERSONAS = {
     "einstein": {
         "id": "einstein", "name": "Albert Einstein", "title": "Theoretical physicist",
-        "era": "1879–1955", "tags": ["physics", "relativity", "mathematics"],
+        "era": "1879-1955", "tags": ["physics", "relativity", "mathematics"],
         "system_prompt": (
             "You are Albert Einstein. Speak in first person as Einstein would: thoughtful, playful, "
             "fond of vivid thought experiments and gentle humour with a faint German cadence. "
             "Reference relativity, quantum debates, your time at the patent office, Princeton, and your "
-            "love of music when relevant. Stay in character even if asked modern questions — "
-            "extrapolate as Einstein might. Keep answers warm and accessible."
+            "love of music when relevant. Stay in character even if asked modern questions. "
+            "Keep answers warm and accessible."
         ),
     },
     "newton": {
         "id": "newton", "name": "Isaac Newton", "title": "Mathematician & physicist",
-        "era": "1643–1727", "tags": ["physics", "mathematics", "calculus", "gravity"],
+        "era": "1643-1727", "tags": ["physics", "mathematics", "calculus", "gravity"],
         "system_prompt": (
             "You are Sir Isaac Newton. Be formal, meticulous, occasionally aloof. Reference your laws of "
             "motion, gravitation, the Principia, your time at Cambridge, your work on optics and calculus, "
@@ -842,7 +895,7 @@ PERSONAS = {
     },
     "curie": {
         "id": "curie", "name": "Marie Curie", "title": "Physicist & chemist",
-        "era": "1867–1934", "tags": ["chemistry", "physics", "radioactivity"],
+        "era": "1867-1934", "tags": ["chemistry", "physics", "radioactivity"],
         "system_prompt": (
             "You are Marie Curie. Quiet, methodical, fiercely determined. Refer to your work isolating "
             "polonium and radium, your Nobel prizes, the radium institute, the X-ray ambulances in WWI, "
@@ -851,16 +904,16 @@ PERSONAS = {
     },
     "darwin": {
         "id": "darwin", "name": "Charles Darwin", "title": "Naturalist",
-        "era": "1809–1882", "tags": ["biology", "evolution", "ecology"],
+        "era": "1809-1882", "tags": ["biology", "evolution", "ecology"],
         "system_prompt": (
             "You are Charles Darwin. Patient, observant, slightly hesitant scholar. Reference the Beagle "
-            "voyage, the Galápagos finches, natural selection, your decades of caution before publishing "
+            "voyage, the Galapagos finches, natural selection, your decades of caution before publishing "
             "On the Origin of Species. Use careful, deliberate Victorian prose."
         ),
     },
     "davinci": {
         "id": "davinci", "name": "Leonardo da Vinci", "title": "Polymath",
-        "era": "1452–1519", "tags": ["art", "anatomy", "engineering", "design"],
+        "era": "1452-1519", "tags": ["art", "anatomy", "engineering", "design"],
         "system_prompt": (
             "You are Leonardo da Vinci. Endlessly curious, sketch metaphors into every explanation, "
             "blend art and engineering. Refer to your notebooks, anatomy studies, flying machines, "
@@ -869,7 +922,7 @@ PERSONAS = {
     },
     "shakespeare": {
         "id": "shakespeare", "name": "William Shakespeare", "title": "Playwright",
-        "era": "1564–1616", "tags": ["literature", "drama", "poetry", "english"],
+        "era": "1564-1616", "tags": ["literature", "drama", "poetry", "english"],
         "system_prompt": (
             "You are William Shakespeare. Speak with theatrical flair, slip into iambic pentameter "
             "when it serves, quote your own works freely. Reference the Globe, your sonnets, your "
@@ -878,16 +931,16 @@ PERSONAS = {
     },
     "lovelace": {
         "id": "lovelace", "name": "Ada Lovelace", "title": "Mathematician",
-        "era": "1815–1852", "tags": ["computing", "mathematics", "algorithms"],
+        "era": "1815-1852", "tags": ["computing", "mathematics", "algorithms"],
         "system_prompt": (
             "You are Ada Lovelace. Imaginative, mathematically rigorous. Reference your work with "
-            "Babbage on the Analytical Engine, your 'poetical science', and your notes — particularly "
+            "Babbage on the Analytical Engine, your 'poetical science', and your notes - particularly "
             "Note G, the first algorithm. See machines as creative instruments."
         ),
     },
     "tesla": {
         "id": "tesla", "name": "Nikola Tesla", "title": "Inventor & engineer",
-        "era": "1856–1943", "tags": ["electricity", "engineering", "physics"],
+        "era": "1856-1943", "tags": ["electricity", "engineering", "physics"],
         "system_prompt": (
             "You are Nikola Tesla. Eccentric, visionary, fond of dramatic flair. Reference AC current, "
             "your rivalry with Edison, your Colorado Springs experiments, wireless transmission. "
@@ -896,7 +949,7 @@ PERSONAS = {
     },
     "hawking": {
         "id": "hawking", "name": "Stephen Hawking", "title": "Theoretical physicist",
-        "era": "1942–2018", "tags": ["physics", "cosmology", "black holes"],
+        "era": "1942-2018", "tags": ["physics", "cosmology", "black holes"],
         "system_prompt": (
             "You are Stephen Hawking. Witty, irreverent, profound. Use accessible analogies for "
             "black holes, Hawking radiation, the Big Bang, and A Brief History of Time. Drop the "
@@ -905,7 +958,7 @@ PERSONAS = {
     },
     "turing": {
         "id": "turing", "name": "Alan Turing", "title": "Mathematician & computer scientist",
-        "era": "1912–1954", "tags": ["computing", "mathematics", "cryptography"],
+        "era": "1912-1954", "tags": ["computing", "mathematics", "cryptography"],
         "system_prompt": (
             "You are Alan Turing. Precise, thoughtful, slightly hesitant in speech. Reference your "
             "work at Bletchley Park breaking Enigma, the Turing machine, the imitation game, "
@@ -914,7 +967,7 @@ PERSONAS = {
     },
     "galileo": {
         "id": "galileo", "name": "Galileo Galilei", "title": "Astronomer & physicist",
-        "era": "1564–1642", "tags": ["astronomy", "physics", "mathematics"],
+        "era": "1564-1642", "tags": ["astronomy", "physics", "mathematics"],
         "system_prompt": (
             "You are Galileo Galilei. Defiant, observational, with Italian Renaissance fire. "
             "Reference your telescopes, Jupiter's moons, the Inquisition trial, and 'eppur si muove'."
@@ -922,7 +975,7 @@ PERSONAS = {
     },
     "aristotle": {
         "id": "aristotle", "name": "Aristotle", "title": "Philosopher",
-        "era": "384–322 BCE", "tags": ["philosophy", "biology", "logic", "ethics"],
+        "era": "384-322 BCE", "tags": ["philosophy", "biology", "logic", "ethics"],
         "system_prompt": (
             "You are Aristotle. Methodical, classifying everything. Reference the Lyceum, "
             "Plato as your teacher, Alexander as your student, your work on logic, ethics, "
@@ -931,7 +984,7 @@ PERSONAS = {
     },
     "feynman": {
         "id": "feynman", "name": "Richard Feynman", "title": "Theoretical physicist & teacher",
-        "era": "1918–1988", "tags": ["physics", "teaching", "quantum mechanics"],
+        "era": "1918-1988", "tags": ["physics", "teaching", "quantum mechanics"],
         "system_prompt": (
             "You are Richard Feynman. Playful Brooklyn drawl, fierce about clarity, allergic to "
             "jargon. Use everyday analogies and stories. Reference Caltech, QED, your bongo drums, "
@@ -966,15 +1019,6 @@ async def list_personas():
     return {"items": built_in + custom}
 
 
-def get_persona(pid: Optional[str]):
-    if not pid:
-        return None
-    if pid in PERSONAS:
-        return PERSONAS[pid]
-    # Custom persona (sync fallback: we'll fetch below in stream where async is available)
-    return None
-
-
 async def get_persona_async(pid: Optional[str]):
     if not pid:
         return None
@@ -986,7 +1030,7 @@ async def get_persona_async(pid: Optional[str]):
 
 class CustomPersonaRequest(BaseModel):
     name: str
-    brief: str  # e.g. "A WWII codebreaker who loves cats and speaks in puns"
+    brief: str
 
 
 class CustomPersonaModel(BaseModel):
@@ -1013,11 +1057,10 @@ async def create_custom_persona(req: CustomPersonaRequest):
         f"Create a chat persona for a study app. The user wants a character called '{req.name}' "
         f"with this brief: \"{req.brief}\".\n\n"
         "Write a persona spec in JSON. The system_prompt should be written in the 2nd person ('You are X. "
-        "Speak as X would: …') and instruct the model to stay in character, suggest the voice, tone, "
-        "vocabulary, mannerisms, and references the character would use. Keep it 4-6 sentences.\n\n"
+        "Speak as X would: ...') and instruct the model to stay in character.\n\n"
         "Return ONLY this JSON:\n"
         "{\n"
-        '  "title": "<short role title, e.g. \'Curious astronomer\'>",\n'
+        '  "title": "<short role title>",\n'
         '  "era": "<e.g. \'1920s\', \'Renaissance\', \'Fictional\'>",\n'
         '  "tags": ["<3-5 short tags>"],\n'
         '  "system_prompt": "<the in-character system prompt>"\n'
@@ -1055,13 +1098,6 @@ async def delete_custom_persona(persona_id: str):
     return {"ok": True}
 
 
-def get_persona_built_in(pid: Optional[str]):
-    """Sync-only lookup for built-in personas (used inside group-message labels)."""
-    if not pid:
-        return None
-    return PERSONAS.get(pid)
-
-
 def build_persona_system_message(persona: dict, subject: Optional[dict]) -> str:
     base = persona["system_prompt"]
     if subject:
@@ -1080,7 +1116,6 @@ from fastapi.responses import StreamingResponse
 
 @api_router.post("/chat/send-user-message", response_model=ChatMessage)
 async def send_user_message(req: SendUserMessageRequest):
-    """Save the user message (called before streaming persona replies)."""
     session = await db.chat_sessions.find_one({"id": req.session_id}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -1097,7 +1132,6 @@ async def send_user_message(req: SendUserMessageRequest):
 
 @api_router.post("/chat/stream-reply")
 async def stream_reply(req: StreamReplyRequest):
-    """Stream a single persona's reply via SSE."""
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
     session = await db.chat_sessions.find_one({"id": req.session_id}, {"_id": 0})
@@ -1123,14 +1157,12 @@ async def stream_reply(req: StreamReplyRequest):
         {"session_id": req.session_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(2000)
 
-    # Apply context window. 0 = all. Otherwise keep the most recent N messages.
     ctx_n = int(settings.get('context_window') or 0)
     if ctx_n > 0 and len(history_full) > ctx_n:
         history = history_full[-ctx_n:]
     else:
         history = history_full
 
-    # Pre-load all personas referenced in history (to label messages in group chat)
     is_group = len(session.get('personas') or []) > 1
     persona_cache = {}
     if is_group:
@@ -1139,9 +1171,6 @@ async def stream_reply(req: StreamReplyRequest):
             if pid and pid not in persona_cache:
                 persona_cache[pid] = await get_persona_async(pid)
 
-    # In group chat, label prior assistant messages with their persona names so the LLM knows who said what
-    # Also: Anthropic requires alternating user/assistant — inject synthetic user separators between
-    # consecutive assistant turns (which happen in group chats).
     messages = []
     for m in history:
         if m['role'] == 'assistant':
@@ -1165,7 +1194,6 @@ async def stream_reply(req: StreamReplyRequest):
     if not messages:
         messages.append({"role": "user", "content": "(Begin.)"})
 
-    # If this is a group chat reply, hint the persona who they are and who has spoken
     if is_group and persona:
         other_names = []
         for pid in session.get('personas', []):
@@ -1176,9 +1204,7 @@ async def stream_reply(req: StreamReplyRequest):
                 other_names.append(p['name'])
         sys_msg += (
             f"\n\nThis is a GROUP conversation. The other participants are: {', '.join(other_names)}. "
-            "Speak only as yourself, in first person. Address the user and reference what the others "
-            "have said when relevant — agree, build on, or politely challenge their points. "
-            "Keep it to ONE paragraph (under 120 words) so the conversation stays lively. "
+            "Speak only as yourself, in first person. Keep it to ONE paragraph (under 120 words). "
             "Do NOT prefix your reply with your own name."
         )
 
@@ -1230,7 +1256,7 @@ class StudyNote(BaseModel):
     title: str
     summary: str
     sections: List[StudyNoteSection]
-    key_terms: List[Dict[str, str]] = Field(default_factory=list)  # [{term, definition}]
+    key_terms: List[Dict[str, str]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -1246,9 +1272,9 @@ async def generate_notes(req: StudyNoteRequest):
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
     subject = await get_subject(req.subject_id) if req.subject_id else None
     depth_map = {
-        "overview": "Concise overview — 3 short sections, max 4 bullets each, no advanced jargon.",
-        "standard": "Comprehensive — 5-7 sections with 4-6 bullets each, key terms defined.",
-        "deep": "In-depth — 6 sections, 5 bullets each (one concise sentence per bullet, max 22 words). Include common misconceptions and exam tips. Define 5-8 key terms. Keep all strings short and JSON-safe.",
+        "overview": "Concise overview - 3 short sections, max 4 bullets each, no advanced jargon.",
+        "standard": "Comprehensive - 5-7 sections with 4-6 bullets each, key terms defined.",
+        "deep": "In-depth - 6 sections, 5 bullets each. Include common misconceptions and exam tips. Define 5-8 key terms.",
     }
     max_tokens_map = {"overview": 2000, "standard": 4000, "deep": 6000}
     parts = [
@@ -1267,7 +1293,7 @@ async def generate_notes(req: StudyNoteRequest):
         '  "sections": [{"heading": "...", "bullets": ["...", ...]}, ...],\n'
         '  "key_terms": [{"term": "...", "definition": "..."}, ...]\n'
         '}\n'
-        "Keep all strings ASCII-friendly. Escape any quotes inside strings with backslash. Output MUST be valid parseable JSON."
+        "Output MUST be valid parseable JSON."
     )
     prompt = "\n\n".join(parts)
     try:
@@ -1284,7 +1310,6 @@ async def generate_notes(req: StudyNoteRequest):
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.error(f"Notes parse failed. Raw first 500: {raw[:500]}")
-        logger.error(f"Raw last 500: {raw[-500:]}")
         raise HTTPException(status_code=502, detail=f"Could not parse notes: {e}")
 
     note = StudyNote(
@@ -1300,8 +1325,7 @@ async def generate_notes(req: StudyNoteRequest):
     return note
 
 
-# ---------- CHAT → MORNING QUIZ & SUMMARY ----------
-async def _build_chat_transcript(session_id: str, max_chars: int = 18000) -> tuple[str, dict]:
+async def _build_chat_transcript(session_id: str, max_chars: int = 18000) -> tuple:
     session = await db.chat_sessions.find_one({"id": session_id}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -1309,7 +1333,7 @@ async def _build_chat_transcript(session_id: str, max_chars: int = 18000) -> tup
         {"session_id": session_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(2000)
     if not history:
-        raise HTTPException(status_code=400, detail="No messages yet — chat first, then try this.")
+        raise HTTPException(status_code=400, detail="No messages yet - chat first, then try this.")
     lines = []
     for m in history:
         role = "Student" if m['role'] == 'user' else "Tutor"
@@ -1338,19 +1362,15 @@ async def morning_quiz(session_id: str):
         "Below is a transcript of a revision chat between a student and a tutor. "
         "Distil the KEY learning points into a short, sharp morning-of-the-exam quiz "
         "(6 questions: 4 multiple choice, 2 short answer). "
-        "Focus only on what was actually discussed in the chat — do not invent new topics. "
-        "Make it fast to do (10 minutes max).\n\n"
+        "Focus only on what was actually discussed in the chat.\n\n"
         f"TRANSCRIPT:\n---\n{transcript}\n---\n\n"
         "Return ONLY this JSON (no code fences):\n"
         "{\n"
-        '  "title": "<e.g. \'Morning quiz: <topic>\'>",\n'
+        '  "title": "<e.g. Morning quiz: <topic>>",\n'
         '  "instructions": "<one-sentence pep talk>",\n'
         '  "duration_minutes": 10,\n'
         '  "total_marks": <int>,\n'
-        '  "questions": [\n'
-        '    {"number": 1, "type": "multiple_choice", "question": "...", "options": ["A) ...","B) ...","C) ...","D) ..."], "answer": "<letter and text>", "explanation": "<1 sentence>", "marks": 1},\n'
-        '    {"number": 5, "type": "short_answer", "question": "...", "answer": "<model>", "explanation": "<1 sentence>", "marks": 2}\n'
-        '  ]\n'
+        '  "questions": [...]\n'
         '}'
     )
     try:
@@ -1378,7 +1398,6 @@ async def morning_quiz(session_id: str):
             marks=int(q.get('marks') or (1 if q.get('type') == 'multiple_choice' else 2)),
         ))
     total_marks = data.get('total_marks') or sum(q.marks for q in questions)
-    title = data.get('title') or f"Morning quiz: {session.get('title') or 'chat'}"
     ws = Worksheet(
         subject_id=session.get('subject_id'),
         subject_name=subject['name'] if subject else "",
@@ -1386,8 +1405,8 @@ async def morning_quiz(session_id: str):
         difficulty="mixed",
         question_type="mixed",
         num_questions=len(questions),
-        title=title,
-        instructions=data.get('instructions') or "Quick warm-up before your exam — go!",
+        title=data.get('title') or f"Morning quiz: {session.get('title') or 'chat'}",
+        instructions=data.get('instructions') or "Quick warm-up before your exam - go!",
         total_marks=int(total_marks),
         duration_minutes=int(data.get('duration_minutes') or 10),
         questions=questions,
@@ -1407,8 +1426,7 @@ async def summarise_chat(session_id: str):
 
     prompt = (
         "Below is a transcript of a revision chat. Write a short, clean STUDY NOTE that summarises the key "
-        "learning from the conversation. Keep it tight: 3-5 sections, 3-5 bullets each, and 3-6 key terms. "
-        "Only include what was actually discussed.\n\n"
+        "learning from the conversation. Keep it tight: 3-5 sections, 3-5 bullets each, and 3-6 key terms.\n\n"
         f"TRANSCRIPT:\n---\n{transcript}\n---\n\n"
         "Return ONLY this JSON (no code fences):\n"
         "{\n"
@@ -1494,7 +1512,6 @@ async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest):
         question_type=req.question_type,
         extra_instructions=f"Base questions strictly on the supplied study notes for '{note['title']}'.",
     )
-    # Reuse the prompt builder with the fake subject containing notes
     prompt = build_worksheet_prompt(wreq, fake_subject)
     try:
         resp = await anthropic_client.messages.create(
@@ -1557,7 +1574,6 @@ async def generate_cheat_sheet(worksheet_id: str):
     if not ws:
         raise HTTPException(status_code=404, detail="Worksheet not found")
 
-    # Return existing if any
     existing = await db.cheat_sheets.find_one({"worksheet_id": worksheet_id}, {"_id": 0})
     if existing:
         existing['created_at'] = parse_datetime(existing.get('created_at'))
@@ -1577,25 +1593,21 @@ async def generate_cheat_sheet(worksheet_id: str):
         wrong_blocks.append(
             f"Q{q['number']}: {q['question']}\n"
             f"Model answer: {q['answer']}\n"
-            f"Markscheme notes: {q.get('explanation', '')}\n"
             f"Student's answer: {ws.get('user_answers', {}).get(str(q['number']), '[no answer]')}\n"
             f"Marks lost: {p['out_of'] - p['awarded']}/{p['out_of']}"
         )
 
     if not wrong_blocks:
-        raise HTTPException(status_code=400, detail="No mistakes to focus on — full marks!")
+        raise HTTPException(status_code=400, detail="No mistakes to focus on - full marks!")
 
     prompt = (
-        f"A student has just sat the worksheet \"{ws['title']}\" "
-        f"({ws.get('subject_name', '')} · {ws['topic']}) and lost marks on these questions:\n\n"
+        f"A student has just sat the worksheet \"{ws['title']}\" and lost marks on these questions:\n\n"
         + "\n\n".join(wrong_blocks)
-        + "\n\nWrite a focused **cheat sheet** that teaches them exactly what they got wrong. "
-        "Group related concepts. Use clear bullets, simple language, and concrete examples. "
-        "Include a list of practical revision tips at the end.\n\n"
+        + "\n\nWrite a focused cheat sheet that teaches them exactly what they got wrong. "
         "Return ONLY this JSON:\n"
         "{\n"
         '  "title": "<short title>",\n'
-        '  "intro": "<2-3 sentence pep-talk + what we\'ll focus on>",\n'
+        '  "intro": "<2-3 sentence pep-talk>",\n'
         '  "sections": [{"heading": "...", "bullets": ["...", ...]}, ...],\n'
         '  "tips": ["<actionable revision tip>", ...]\n'
         '}\n'
@@ -1636,7 +1648,7 @@ async def get_cheat_sheet(worksheet_id: str):
 # ---------- EXAM DATES ----------
 class ExamCreate(BaseModel):
     name: str
-    exam_date: str  # ISO date or datetime
+    exam_date: str
     subject_id: Optional[str] = None
     location: Optional[str] = ""
     notes: Optional[str] = ""
@@ -1728,14 +1740,11 @@ async def delete_exam(exam_id: str):
 
 @api_router.post("/exams/{exam_id}/debrief", response_model=ChatSession)
 async def start_exam_debrief(exam_id: str):
-    """Mark an exam as completed and spin up a reflective chat session with a
-    purpose-built debrief tutor that asks how it went, what was tough, etc."""
     exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
     if exam.get('debrief_session_id'):
-        # Already debriefed — just return existing session
         existing = await db.chat_sessions.find_one({"id": exam['debrief_session_id']}, {"_id": 0})
         if existing:
             existing['created_at'] = parse_datetime(existing.get('created_at'))
@@ -1747,14 +1756,8 @@ async def start_exam_debrief(exam_id: str):
         + (f" in {exam.get('subject_name')}" if exam.get('subject_name') else "")
         + f" on {exam.get('exam_date', '')}.\n\n"
         "Your job in this conversation is a POST-EXAM DEBRIEF. Be kind first, analytical second. "
-        "Open with a warm, encouraging greeting and ask ONE clear question to start. Then guide them through:\n"
-        "  1) How they felt going in and during the exam (calm? rushed? blanked?)\n"
-        "  2) Which questions / sections felt good vs which felt hard\n"
-        "  3) Any topics that came up that they wished they'd revised more\n"
-        "  4) Anything they'd do differently next time\n"
-        "Ask ONLY ONE question per reply. Keep replies short (≤ 80 words). React to their emotions. "
-        "If they seem stressed, validate the feeling before moving on. At the end (after ~5-6 exchanges), "
-        "offer to summarise insights into a study note for next time. Never lecture. No bullet lists unless they ask."
+        "Ask ONLY ONE question per reply. Keep replies short (under 80 words). "
+        "Never lecture. No bullet lists unless they ask."
     )
 
     session = ChatSession(
@@ -1768,21 +1771,14 @@ async def start_exam_debrief(exam_id: str):
     )
     await db.chat_sessions.insert_one(serialize_doc(session.model_dump()))
 
-    # Seed the conversation with the first assistant message so the student lands in an inviting space
-    opener_lines = [
-        f"Hey — you've made it through **{exam['name']}**. First things first: take a breath. 🌿",
-        "",
-        "How did it feel walking out of that exam — relieved, drained, frustrated, something else entirely?",
-    ]
     opener = ChatMessage(
         session_id=session.id,
         role="assistant",
-        content="\n".join(opener_lines),
+        content=f"Hey - you've made it through **{exam['name']}**. First things first: take a breath.\n\nHow did it feel walking out of that exam?",
         persona_id=None,
     )
     await db.chat_messages.insert_one(serialize_doc(opener.model_dump()))
 
-    # Mark exam as completed and link the session
     await db.exams.update_one(
         {"id": exam_id},
         {"$set": {"completed": True, "debrief_session_id": session.id}}
@@ -1792,7 +1788,6 @@ async def start_exam_debrief(exam_id: str):
 
 @api_router.get("/exams/{exam_id}/morning-brief")
 async def get_morning_brief(exam_id: str):
-    """Generate (and cache) a morning-of-exam brief: 3 key topics + a 1-line motivation."""
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
     exam = await db.exams.find_one({"id": exam_id}, {"_id": 0})
@@ -1819,8 +1814,8 @@ async def get_morning_brief(exam_id: str):
         "Return ONLY this JSON (no code fences):\n"
         "{\n"
         '  "key_topics": ["<3-5 specific things to glance at one final time>"],\n'
-        '  "motivation": "<one short, warm, energising sentence — no exclamation overload>",\n'
-        '  "headline": "<short title like \'Biology Paper 1 — you\'ve got this\'>"\n'
+        '  "motivation": "<one short, warm, energising sentence>",\n'
+        '  "headline": "<short title>"\n'
         '}'
     )
     try:
@@ -1840,9 +1835,9 @@ async def get_morning_brief(exam_id: str):
         "exam_id": exam_id,
         "exam_name": exam['name'],
         "exam_date": exam['exam_date'],
-        "headline": data.get('headline') or f"{exam['name']} — go get it",
+        "headline": data.get('headline') or f"{exam['name']} - go get it",
         "key_topics": data.get('key_topics') or [],
-        "motivation": data.get('motivation') or "Trust your prep — focus on the question in front of you.",
+        "motivation": data.get('motivation') or "Trust your prep - focus on the question in front of you.",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.exam_briefs.insert_one(serialize_doc(dict(brief)))
@@ -1857,11 +1852,11 @@ class RevisionTask(BaseModel):
     worksheet_id: Optional[str] = None
     auto_note_topic: Optional[str] = None
     auto_worksheet_topic: Optional[str] = None
-    generating: Optional[str] = None  # transient field; never persisted strictly
+    generating: Optional[str] = None
 
 
 class RevisionDay(BaseModel):
-    date: str  # YYYY-MM-DD
+    date: str
     focus: str
     tasks: List[RevisionTask]
 
@@ -1898,7 +1893,6 @@ async def generate_plan(exam_id: str):
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
-    # Days remaining (cap to 30 for token sanity, min 1)
     try:
         exam_dt = datetime.fromisoformat(exam['exam_date'].replace('Z', '+00:00'))
     except Exception:
@@ -1920,7 +1914,6 @@ async def generate_plan(exam_id: str):
         if subject.get('notes'):
             subject_block += f"Reference notes:\n---\n{subject['notes'][:4000]}\n---\n"
 
-    # Gather existing notes & worksheets the AI can wire into tasks
     note_filter = {"subject_id": exam['subject_id']} if exam.get('subject_id') else {}
     ws_filter = {"subject_id": exam['subject_id']} if exam.get('subject_id') else {}
     existing_notes = await db.study_notes.find(note_filter, {"_id": 0, "id": 1, "title": 1, "topic": 1}).sort("created_at", -1).to_list(40)
@@ -1929,26 +1922,18 @@ async def generate_plan(exam_id: str):
     library_block = ""
     if existing_notes:
         lines = [f"- note_id={n['id']}: \"{n.get('title') or n.get('topic')}\"" for n in existing_notes]
-        library_block += "\nAVAILABLE NOTES (use these IDs when a task says to read notes):\n" + "\n".join(lines)
+        library_block += "\nAVAILABLE NOTES:\n" + "\n".join(lines)
     if existing_ws:
         lines = [f"- worksheet_id={w['id']}: \"{w.get('title') or w.get('topic')}\"" for w in existing_ws]
-        library_block += "\n\nAVAILABLE WORKSHEETS (use these IDs when a task says to complete a worksheet):\n" + "\n".join(lines)
+        library_block += "\n\nAVAILABLE WORKSHEETS:\n" + "\n".join(lines)
 
     prompt = (
         f"Build a focused day-by-day revision plan for the exam: \"{exam['name']}\". "
-        f"It is on {exam['exam_date']}. We have {days_to_plan} days to plan (today onwards). "
+        f"It is on {exam['exam_date']}. We have {days_to_plan} days to plan. "
         "Each day: ONE focus + 3-5 short concrete tasks.\n\n"
-        "For each task, attach EXACTLY ONE of these four optional fields (or none):\n"
-        "• `note_id`: id from AVAILABLE NOTES list (only use these — never invent).\n"
-        "• `worksheet_id`: id from AVAILABLE WORKSHEETS list.\n"
-        "• `auto_note_topic`: short topic (≤ 10 words) for a NEW set of notes to be generated. Use when task says 'read notes on …' and topic is NOT in the library.\n"
-        "• `auto_worksheet_topic`: short topic (≤ 10 words) for a NEW worksheet to be generated. Use when task says 'do worksheet on …' and topic is NOT in the library.\n"
-        "OMIT fields that don't apply (don't include them as empty strings or null). Aim for ~70% of tasks "
-        "to carry one of these fields so the plan is materially actionable.\n\n"
-        f"{subject_block}\n"
-        f"{library_block}\n\n"
+        f"{subject_block}\n{library_block}\n\n"
         f"User notes about this exam: {exam.get('notes') or '(none)'}\n\n"
-        f"Return ONLY this JSON (no code fences). Use ISO YYYY-MM-DD dates starting from today ({now.date().isoformat()}):\n"
+        f"Return ONLY this JSON. Use ISO YYYY-MM-DD dates starting from today ({now.date().isoformat()}):\n"
         "{\n"
         '  "days": [\n'
         '    {"date":"YYYY-MM-DD","focus":"<short>","tasks":[\n'
@@ -1963,7 +1948,7 @@ async def generate_plan(exam_id: str):
         resp = await anthropic_client.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=7000,
-            system="You are an expert revision coach. Return ONLY valid, parseable JSON. Keep every string short.",
+            system="You are an expert revision coach. Return ONLY valid, parseable JSON.",
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
@@ -1985,7 +1970,6 @@ async def generate_plan(exam_id: str):
             wid = t.get('worksheet_id') if t.get('worksheet_id') in valid_ws_ids else None
             ant = (t.get('auto_note_topic') or '').strip() or None
             awt = (t.get('auto_worksheet_topic') or '').strip() or None
-            # If the task already references real content, drop the auto-* fields.
             if nid:
                 ant = None
             if wid:
@@ -1998,7 +1982,6 @@ async def generate_plan(exam_id: str):
         days.append(RevisionDay(date=d.get('date', ''), focus=d.get('focus', '') or '', tasks=tasks))
 
     plan = RevisionPlan(exam_id=exam_id, exam_name=exam['name'], days=days)
-    # Upsert
     await db.revision_plans.delete_many({"exam_id": exam_id})
     await db.revision_plans.insert_one(serialize_doc(plan.model_dump()))
     return plan
@@ -2065,7 +2048,7 @@ async def generate_task_content(exam_id: str, payload: GenerateTaskContent):
         ws_req = WorksheetRequest(
             subject_id=subject_id, topic=topic,
             num_questions=6, difficulty="medium", question_type="mixed",
-            extra_instructions=f"This worksheet is for revision-plan task: '{task.get('text')}'. Keep it tight (6 questions).",
+            extra_instructions=f"This worksheet is for revision-plan task: '{task.get('text')}'. Keep it tight.",
         )
         ws = await generate_worksheet(ws_req)
         task['worksheet_id'] = ws.id
@@ -2081,7 +2064,7 @@ async def generate_task_content(exam_id: str, payload: GenerateTaskContent):
 
 # ---------- CONFIDENCE RATING ----------
 class ConfidenceRating(BaseModel):
-    rating: int  # 1-5
+    rating: int
     notes: Optional[str] = ""
 
 
@@ -2144,7 +2127,7 @@ async def search(q: str = ""):
     }
 
 
-# ---------- Mount ----------
+# ---------- MOUNT ROUTER + MIDDLEWARE ----------
 app.include_router(api_router)
 
 app.add_middleware(
@@ -2155,9 +2138,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logger.info("Revisia API ready, model: %s, has_key: %s", CLAUDE_MODEL, bool(ANTHROPIC_API_KEY))
 
+# ---------- STARTUP / SHUTDOWN ----------
+@app.on_event("startup")
+async def startup_db_client():
+    existing = await auth_module.get_user_by_username("oscar")
+    if not existing:
+        await auth_module.create_user("oscar", "admin1234", is_admin=True)
+        logger.info("Admin account created: oscar / admin1234 - CHANGE THIS PASSWORD!")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+logger.info("Revisia API ready, model: %s, has_key: %s", CLAUDE_MODEL, bool(ANTHROPIC_API_KEY))

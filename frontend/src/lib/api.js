@@ -1,9 +1,21 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
 export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API });
+
+// Attach auth token to every request
+api.interceptors.request.use((config) => {
+  const raw = localStorage.getItem("revisiapp_auth");
+  if (raw) {
+    try {
+      const { token } = JSON.parse(raw);
+      if (token) config.headers["Authorization"] = `Bearer ${token}`;
+    } catch {}
+  }
+  return config;
+});
 
 // Subjects
 export const listSubjects = () => api.get("/subjects").then(r => r.data);
@@ -36,11 +48,18 @@ export const generateMorningQuiz = (session_id) =>
 export const summariseChat = (session_id) =>
   api.post(`/chat/sessions/${session_id}/summary`).then(r => r.data);
 
-// Streamed reply — returns an async iterable of delta strings + a final {done, message_id, persona_id}
+// Streamed reply
 export async function* streamReply(session_id, persona_id) {
+  const raw = localStorage.getItem("revisiapp_auth");
+  let token = "";
+  try { token = JSON.parse(raw || "{}").token || ""; } catch {}
+
   const res = await fetch(`${API}/chat/stream-reply`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ session_id, persona_id }),
   });
   if (!res.ok || !res.body) throw new Error("stream failed");
@@ -60,7 +79,7 @@ export async function* streamReply(session_id, persona_id) {
     }
   }
   if (buffer.startsWith("data:")) {
-    try { yield JSON.parse(buffer.slice(5).trim()); } catch (e) { /* ignore */ }
+    try { yield JSON.parse(buffer.slice(5).trim()); } catch {}
   }
 }
 
@@ -80,7 +99,6 @@ export const getNote = (id) => api.get(`/notes/${id}`).then(r => r.data);
 export const deleteNote = (id) => api.delete(`/notes/${id}`).then(r => r.data);
 export const worksheetFromNotes = (id, data) => api.post(`/notes/${id}/worksheet`, data).then(r => r.data);
 
-// Persona avatar URL (DiceBear, free, no key)
 export const avatarUrl = (seed) =>
   `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(seed || "anon")}&backgroundType=solid&backgroundColor=f3e8d8,e8d8c4,d9e6f2,e6dff5,ffe0d6`;
 
@@ -94,7 +112,6 @@ export const updateExam = (id, data) => api.patch(`/exams/${id}`, data).then(r =
 export const deleteExam = (id) => api.delete(`/exams/${id}`).then(r => r.data);
 export const startExamDebrief = (id) => api.post(`/exams/${id}/debrief`).then(r => r.data);
 
-// Revision plan
 export const getRevisionPlan = (examId) => api.get(`/exams/${examId}/plan`).then(r => r.data);
 export const generateRevisionPlan = (examId) => api.post(`/exams/${examId}/plan`).then(r => r.data);
 export const togglePlanTask = (examId, day_index, task_index, done) =>
@@ -103,9 +120,14 @@ export const generateTaskContent = (examId, day_index, task_index, kind) =>
   api.post(`/exams/${examId}/plan/task/generate`, { day_index, task_index, kind }).then(r => r.data);
 export const getMorningBrief = (examId) => api.get(`/exams/${examId}/morning-brief`).then(r => r.data);
 
-// Confidence
 export const setWorksheetConfidence = (id, rating, notes = "") =>
   api.post(`/worksheets/${id}/confidence`, { rating, notes }).then(r => r.data);
 
-// Search
 export const search = (q) => api.get(`/search`, { params: { q } }).then(r => r.data);
+
+// Admin
+export const adminListUsers = () => api.get("/admin/users").then(r => r.data);
+export const adminUpdateUser = (id, data) => api.patch(`/admin/users/${id}`, data).then(r => r.data);
+export const adminDeleteUser = (id) => api.delete(`/admin/users/${id}`).then(r => r.data);
+export const adminCreateUser = (data) => api.post("/admin/users", data).then(r => r.data);
+export const adminResetTokens = (id) => api.post(`/admin/users/${id}/reset-tokens`).then(r => r.data);
