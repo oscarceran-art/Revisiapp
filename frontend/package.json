@@ -2,6 +2,9 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+  "node": ">=20.0.0"
+},
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@phosphor-icons/react": "^2.1.10",
@@ -61,10 +64,10 @@
     "zod": "^3.24.4"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
-    "test": "craco test"
-  },
+  "start": "react-scripts start",
+  "build": "react-scripts build",
+  "test": "react-scripts test"
+},
   "browserslist": {
     "production": [
       ">0.2%",
