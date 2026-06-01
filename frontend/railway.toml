@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install --legacy-peer-deps --include=dev && ./node_modules/.bin/craco build"
+buildCommand = "npm install --legacy-peer-deps && npx craco build"
 
 [deploy]
 startCommand = "npx serve -s build -l $PORT"
