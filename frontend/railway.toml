@@ -1,7 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "npm install --legacy-peer-deps && npx craco build"
-
-[deploy]
-startCommand = "npx serve -s build -l $PORT"
-restartPolicyType = "on_failure"

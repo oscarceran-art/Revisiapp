@@ -30,6 +30,16 @@ db = client[os.environ['DB_NAME']]
 
 auth_module.set_db(db)
 
+async def _charge_tokens(user: dict, resp):
+    """Extract real token usage from Anthropic response and charge the user."""
+    try:
+        tokens = (resp.usage.input_tokens or 0) + (resp.usage.output_tokens or 0)
+        if tokens > 0:
+            await auth_module.check_and_charge_tokens(user, tokens)
+    except Exception:
+        pass  # Never block the response due to tracking failure
+
+
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
@@ -484,7 +494,7 @@ async def get_messages(session_id: str, authorization: Optional[str] = Header(No
     session = await db.chat_sessions.find_one({"id": session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    docs = await db.chat_messages.find({"session_id": session_id}, {"_id": 0}).sort("created_at", 1).to_list(2000)
+    docs = await db.chat_messages.find({"session_id": session_id, "user_id": user["id"]}, {"_id": 0}).sort("created_at", 1).to_list(2000)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
     return docs
@@ -526,6 +536,9 @@ async def send_message(payload: ChatSendRequest, authorization: Optional[str] = 
             messages=messages,
         )
         response_text = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Claude error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -635,6 +648,9 @@ async def generate_worksheet(req: WorksheetRequest, authorization: Optional[str]
             messages=[{"role": "user", "content": prompt}],
         )
         raw = response.content[0].text
+        await _charge_tokens(user, response)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Claude error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -758,6 +774,9 @@ async def mark_worksheet(worksheet_id: str, payload: MarkRequest, authorization:
             messages=[{"role": "user", "content": prompt}],
         )
         raw = response.content[0].text
+        await _charge_tokens(user, response)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Marker error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -1044,7 +1063,7 @@ async def list_personas():
         {k: v for k, v in p.items() if k != "system_prompt"}
         for p in PERSONAS.values()
     ]
-    custom_docs = await db.custom_personas.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    custom_docs = await db.custom_personas.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     custom = [
         {k: v for k, v in c.items() if k != "system_prompt"}
         for c in custom_docs
@@ -1108,6 +1127,7 @@ async def create_custom_persona(req: CustomPersonaRequest):
             messages=[{"role": "user", "content": gen_prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
         data = parse_worksheet_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Generation failed: {e}")
@@ -1420,6 +1440,7 @@ async def morning_quiz(session_id: str, authorization: Optional[str] = Header(No
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Morning quiz failed")
@@ -1484,6 +1505,7 @@ async def summarise_chat(session_id: str, authorization: Optional[str] = Header(
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Chat summary failed")
@@ -1565,6 +1587,7 @@ async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest, authoriz
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
         data = parse_worksheet_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Generation failed: {e}")
@@ -1666,6 +1689,7 @@ async def generate_cheat_sheet(worksheet_id: str, authorization: Optional[str] =
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
         data = parse_worksheet_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
@@ -1886,6 +1910,7 @@ async def get_morning_brief(exam_id: str, authorization: Optional[str] = Header(
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Morning brief failed")
@@ -2021,6 +2046,7 @@ async def generate_plan(exam_id: str, authorization: Optional[str] = Header(None
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
+        await _charge_tokens(user, resp)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Plan failed")
