@@ -494,7 +494,9 @@ async def get_messages(session_id: str, authorization: Optional[str] = Header(No
     session = await db.chat_sessions.find_one({"id": session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    docs = await db.chat_messages.find({"session_id": session_id, "user_id": user["id"]}, {"_id": 0}).sort("created_at", 1).to_list(2000)
+    # Messages are scoped by session; the session was already verified to belong
+    # to this user above. (Older messages were saved without a user_id field.)
+    docs = await db.chat_messages.find({"session_id": session_id}, {"_id": 0}).sort("created_at", 1).to_list(2000)
     for d in docs:
         d['created_at'] = parse_datetime(d.get('created_at'))
     return docs
@@ -1058,7 +1060,8 @@ PERSONAS = {
 
 
 @api_router.get("/personas")
-async def list_personas():
+async def list_personas(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     built_in = [
         {k: v for k, v in p.items() if k != "system_prompt"}
         for p in PERSONAS.values()
@@ -1099,7 +1102,8 @@ class CustomPersonaModel(BaseModel):
 
 
 @api_router.post("/personas/custom", response_model=CustomPersonaModel)
-async def create_custom_persona(req: CustomPersonaRequest):
+async def create_custom_persona(req: CustomPersonaRequest, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
     if not req.name.strip() or not req.brief.strip():
@@ -1139,13 +1143,16 @@ async def create_custom_persona(req: CustomPersonaRequest):
         tags=data.get('tags', []) or ['custom'],
         system_prompt=data.get('system_prompt', '') or f"You are {req.name}. {req.brief}",
     )
-    await db.custom_personas.insert_one(serialize_doc(persona.model_dump()))
+    persona_doc = serialize_doc(persona.model_dump())
+    persona_doc["user_id"] = user["id"]
+    await db.custom_personas.insert_one(persona_doc)
     return persona
 
 
 @api_router.delete("/personas/custom/{persona_id}")
-async def delete_custom_persona(persona_id: str):
-    res = await db.custom_personas.delete_one({"id": persona_id})
+async def delete_custom_persona(persona_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    res = await db.custom_personas.delete_one({"id": persona_id, "user_id": user["id"]})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Custom persona not found")
     return {"ok": True}
@@ -1174,7 +1181,9 @@ async def send_user_message(req: SendUserMessageRequest, authorization: Optional
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     user_msg = ChatMessage(session_id=req.session_id, role="user", content=req.message)
-    await db.chat_messages.insert_one(serialize_doc(user_msg.model_dump()))
+    user_msg_doc = serialize_doc(user_msg.model_dump())
+    user_msg_doc["user_id"] = user["id"]
+    await db.chat_messages.insert_one(user_msg_doc)
     msg_count = await db.chat_messages.count_documents({"session_id": req.session_id})
     if msg_count == 1 and (session.get('title') in (None, '', 'New chat')):
         await db.chat_sessions.update_one(
@@ -1277,6 +1286,12 @@ async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = H
                 async for text in stream.text_stream:
                     full_text += text
                     yield f"data: {json.dumps({'delta': text})}\n\n"
+                # Charge real token usage once the stream completes.
+                try:
+                    final = await stream.get_final_message()
+                    await _charge_tokens(user, final)
+                except Exception:
+                    pass  # Never block the reply on usage tracking
             ai_msg = ChatMessage(
                 id=msg_id,
                 session_id=req.session_id,
@@ -1284,7 +1299,9 @@ async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = H
                 content=full_text,
                 persona_id=req.persona_id,
             )
-            await db.chat_messages.insert_one(serialize_doc(ai_msg.model_dump()))
+            ai_msg_doc = serialize_doc(ai_msg.model_dump())
+            ai_msg_doc["user_id"] = user["id"]
+            await db.chat_messages.insert_one(ai_msg_doc)
             yield f"data: {json.dumps({'done': True, 'message_id': msg_id, 'persona_id': req.persona_id})}\n\n"
         except Exception as e:
             logger.exception("Stream error")
