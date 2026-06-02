@@ -30,12 +30,19 @@ db = client[os.environ['DB_NAME']]
 
 auth_module.set_db(db)
 
-async def _charge_tokens(user: dict, resp):
-    """Extract real token usage from Anthropic response and charge the user."""
+async def _charge_tokens(user: dict, resp, estimated_tokens: int = 0):
+    """Extract real token usage from Anthropic response and adjust the user's token count."""
     try:
-        tokens = (resp.usage.input_tokens or 0) + (resp.usage.output_tokens or 0)
-        if tokens > 0:
-            await auth_module.check_and_charge_tokens(user, tokens)
+        actual_tokens = (resp.usage.input_tokens or 0) + (resp.usage.output_tokens or 0)
+        if actual_tokens > 0 and estimated_tokens > 0:
+            token_diff = actual_tokens - estimated_tokens
+            if token_diff != 0:
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$inc": {"tokens_used_today": token_diff, "tokens_used_week": token_diff}}
+                )
+        elif actual_tokens > 0:
+            await auth_module.check_and_charge_tokens(user, actual_tokens)
     except Exception:
         pass  # Never block the response due to tracking failure
 
@@ -508,6 +515,10 @@ async def send_message(payload: ChatSendRequest, authorization: Optional[str] = 
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
 
     user = await auth_module.get_current_user(authorization)
+
+    estimated_tokens = 2000
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     session = await db.chat_sessions.find_one({"id": payload.session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -538,7 +549,7 @@ async def send_message(payload: ChatSendRequest, authorization: Optional[str] = 
             messages=messages,
         )
         response_text = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
     except HTTPException:
         raise
     except Exception as e:
@@ -637,6 +648,9 @@ async def generate_worksheet(req: WorksheetRequest, authorization: Optional[str]
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
     user = await auth_module.get_current_user(authorization)
 
+    estimated_tokens = 3500
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     subject = None
     if req.subject_id:
         subject = await get_subject(req.subject_id, user["id"])
@@ -650,7 +664,7 @@ async def generate_worksheet(req: WorksheetRequest, authorization: Optional[str]
             messages=[{"role": "user", "content": prompt}],
         )
         raw = response.content[0].text
-        await _charge_tokens(user, response)
+        await _charge_tokens(user, response, estimated_tokens)
     except HTTPException:
         raise
     except Exception as e:
@@ -735,6 +749,10 @@ async def mark_worksheet(worksheet_id: str, payload: MarkRequest, authorization:
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
     user = await auth_module.get_current_user(authorization)
+
+    estimated_tokens = 2500
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     doc = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
@@ -776,7 +794,7 @@ async def mark_worksheet(worksheet_id: str, payload: MarkRequest, authorization:
             messages=[{"role": "user", "content": prompt}],
         )
         raw = response.content[0].text
-        await _charge_tokens(user, response)
+        await _charge_tokens(user, response, estimated_tokens)
     except HTTPException:
         raise
     except Exception as e:
@@ -1109,6 +1127,9 @@ async def create_custom_persona(req: CustomPersonaRequest, authorization: Option
     if not req.name.strip() or not req.brief.strip():
         raise HTTPException(status_code=400, detail="Name and brief are required")
 
+    estimated_tokens = 1500
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     gen_prompt = (
         f"Create a chat persona for a study app. The user wants a character called '{req.name}' "
         f"with this brief: \"{req.brief}\".\n\n"
@@ -1131,7 +1152,7 @@ async def create_custom_persona(req: CustomPersonaRequest, authorization: Option
             messages=[{"role": "user", "content": gen_prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Generation failed: {e}")
@@ -1198,6 +1219,10 @@ async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = H
     if not anthropic_client:
         raise HTTPException(status_code=500, detail="Anthropic key not configured")
     user = await auth_module.get_current_user(authorization)
+
+    estimated_tokens = 2000
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     session = await db.chat_sessions.find_one({"id": req.session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -1289,7 +1314,7 @@ async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = H
                 # Charge real token usage once the stream completes.
                 try:
                     final = await stream.get_final_message()
-                    await _charge_tokens(user, final)
+                    await _charge_tokens(user, final, estimated_tokens)
                 except Exception:
                     pass  # Never block the reply on usage tracking
             ai_msg = ChatMessage(
@@ -1434,6 +1459,9 @@ async def morning_quiz(session_id: str, authorization: Optional[str] = Header(No
     if session.get('subject_id'):
         subject = await get_subject(session['subject_id'], user["id"])
 
+    estimated_tokens = 2500
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     prompt = (
         "Below is a transcript of a revision chat between a student and a tutor. "
         "Distil the KEY learning points into a short, sharp morning-of-the-exam quiz "
@@ -1457,7 +1485,7 @@ async def morning_quiz(session_id: str, authorization: Optional[str] = Header(No
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Morning quiz failed")
@@ -1502,6 +1530,9 @@ async def summarise_chat(session_id: str, authorization: Optional[str] = Header(
     if session.get('subject_id'):
         subject = await get_subject(session['subject_id'])
 
+    estimated_tokens = 2500
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     prompt = (
         "Below is a transcript of a revision chat. Write a short, clean STUDY NOTE that summarises the key "
         "learning from the conversation. Keep it tight: 3-5 sections, 3-5 bullets each, and 3-6 key terms.\n\n"
@@ -1522,7 +1553,7 @@ async def summarise_chat(session_id: str, authorization: Optional[str] = Header(
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Chat summary failed")
@@ -1578,6 +1609,10 @@ class NoteWorksheetRequest(BaseModel):
 @api_router.post("/notes/{note_id}/worksheet", response_model=Worksheet)
 async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest, authorization: Optional[str] = Header(None)):
     user = await auth_module.get_current_user(authorization)
+
+    estimated_tokens = 3500
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     note = await db.study_notes.find_one({"id": note_id, "user_id": user["id"]}, {"_id": 0})
     if not note:
         raise HTTPException(status_code=404, detail="Notes not found")
@@ -1604,7 +1639,7 @@ async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest, authoriz
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Generation failed: {e}")
@@ -1668,6 +1703,9 @@ async def generate_cheat_sheet(worksheet_id: str, authorization: Optional[str] =
     if not mr:
         raise HTTPException(status_code=400, detail="Worksheet must be marked first")
 
+    estimated_tokens = 2500
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     wrong_blocks = []
     for p in mr.get('per_question', []):
         if p['awarded'] >= p['out_of']:
@@ -1706,7 +1744,7 @@ async def generate_cheat_sheet(worksheet_id: str, authorization: Optional[str] =
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
@@ -1899,6 +1937,9 @@ async def get_morning_brief(exam_id: str, authorization: Optional[str] = Header(
     if cached:
         return cached
 
+    estimated_tokens = 1000
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     subject = None
     if exam.get('subject_id'):
         subject = await get_subject(exam['subject_id'])
@@ -1927,7 +1968,7 @@ async def get_morning_brief(exam_id: str, authorization: Optional[str] = Header(
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Morning brief failed")
@@ -2011,6 +2052,9 @@ async def generate_plan(exam_id: str, authorization: Optional[str] = Header(None
     days_left = max(1, (exam_dt.date() - now.date()).days)
     days_to_plan = min(days_left, 21)
 
+    estimated_tokens = 5000
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
     subject = None
     if exam.get('subject_id'):
         subject = await get_subject(exam['subject_id'])
@@ -2063,7 +2107,7 @@ async def generate_plan(exam_id: str, authorization: Optional[str] = Header(None
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text if resp.content else ""
-        await _charge_tokens(user, resp)
+        await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
         logger.exception("Plan failed")

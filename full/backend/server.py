@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,6 +17,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 from anthropic import AsyncAnthropic
 from pypdf import PdfReader
 from docx import Document as DocxDocument
+import auth
 
 
 ROOT_DIR = Path(__file__).parent
@@ -25,6 +26,8 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+auth.set_db(db)
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -217,6 +220,34 @@ async def health():
     return {"ok": True, "has_key": bool(ANTHROPIC_API_KEY)}
 
 
+# ---------- AUTH ENDPOINTS ----------
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@api_router.post("/auth/register")
+async def register(req: RegisterRequest):
+    user = await auth.create_user(req.username, req.password, is_admin=False)
+    token = auth.create_token(user["id"], user["username"])
+    return {"token": token, "user": {k: v for k, v in user.items() if k != "password_hash"}}
+
+
+@api_router.post("/auth/login")
+async def login(req: LoginRequest):
+    return await auth.login_user(req.username, req.password)
+
+
+@api_router.get("/auth/me")
+async def get_me(user: dict = Depends(auth.get_current_user)):
+    return {k: v for k, v in user.items() if k != "password_hash"}
+
+
 # ---------- SUBJECTS ----------
 @api_router.get("/subjects", response_model=List[Subject])
 async def list_subjects():
@@ -315,7 +346,7 @@ async def get_messages(session_id: str):
 
 
 @api_router.post("/chat/send", response_model=ChatMessage)
-async def send_message(payload: ChatSendRequest):
+async def send_message(payload: ChatSendRequest, user: dict = Depends(auth.get_current_user)):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
 
@@ -326,6 +357,9 @@ async def send_message(payload: ChatSendRequest):
     subject = None
     if session.get('subject_id'):
         subject = await get_subject(session['subject_id'])
+
+    estimated_tokens = 2000
+    await auth.check_and_charge_tokens(user, estimated_tokens)
 
     # Save user message
     user_msg = ChatMessage(session_id=payload.session_id, role="user", content=payload.message)
@@ -352,6 +386,13 @@ async def send_message(payload: ChatSendRequest):
             messages=messages,
         )
         response_text = resp.content[0].text if resp.content else ""
+        actual_tokens = resp.usage.input_tokens + resp.usage.output_tokens
+        if actual_tokens != estimated_tokens:
+            token_diff = actual_tokens - estimated_tokens
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$inc": {"tokens_used_today": token_diff, "tokens_used_week": token_diff}}
+            )
     except Exception as e:
         logger.exception("Claude error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -426,13 +467,16 @@ def parse_worksheet_json(text: str) -> dict:
 
 
 @api_router.post("/worksheets/generate", response_model=Worksheet)
-async def generate_worksheet(req: WorksheetRequest):
+async def generate_worksheet(req: WorksheetRequest, user: dict = Depends(auth.get_current_user)):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
 
     subject = None
     if req.subject_id:
         subject = await get_subject(req.subject_id)
+
+    estimated_tokens = 3000
+    await auth.check_and_charge_tokens(user, estimated_tokens)
 
     prompt = build_worksheet_prompt(req, subject)
     session_id = f"worksheet-{uuid.uuid4()}"
@@ -518,9 +562,13 @@ MARKER_SYSTEM = (
 
 
 @api_router.post("/worksheets/{worksheet_id}/mark", response_model=Worksheet)
-async def mark_worksheet(worksheet_id: str, payload: MarkRequest):
+async def mark_worksheet(worksheet_id: str, payload: MarkRequest, user: dict = Depends(auth.get_current_user)):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+
+    estimated_tokens = 2500
+    await auth.check_and_charge_tokens(user, estimated_tokens)
+
     doc = await db.worksheets.find_one({"id": worksheet_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Worksheet not found")
