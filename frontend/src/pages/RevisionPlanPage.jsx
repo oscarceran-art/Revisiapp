@@ -148,7 +148,7 @@ export default function RevisionPlanPage() {
           <div className="bg-white border border-black/10 rounded-3xl p-8 text-center" data-testid="no-plan">
             <CalendarBlank size={48} weight="duotone" className="mx-auto text-black/30" />
             <div className="font-extrabold text-xl mt-4">No plan yet</div>
-            <p className="text-black/55 mt-2 max-w-md mx-auto text-sm">Let Claude build a personalised day-by-day plan based on your exam date and subject notes.</p>
+            <p className="text-black/55 mt-2 max-w-md mx-auto text-sm">Let the AI build a personalised day-by-day plan based on your exam date and subject notes.</p>
             <button
               onClick={handleGenerate}
               disabled={generating}

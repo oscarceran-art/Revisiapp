@@ -138,7 +138,7 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
                 <X size={20} weight="regular" />
               </button>
             </div>
-            <p className="text-sm text-black/55 mb-5">Claude will craft a unique personality, voice and area of expertise from your brief.</p>
+            <p className="text-sm text-black/55 mb-5">The AI will craft a unique personality, voice and area of expertise from your brief.</p>
 
             <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Name</label>
             <input

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  PaperPlaneTilt, ChatCircleText, Gear, Sun, NotePencil, X, Brain, Microphone
+  PaperPlaneTilt, ChatCircleText, Gear, Sun, NotePencil, X, Brain, Microphone, Cpu
 } from "@phosphor-icons/react";
 import {
   getMessages, sendUserMessage, streamReply,
@@ -17,10 +17,16 @@ function findPersona(personas, id) { return personas.find(p => p.id === id); }
 const AI_MODES = [
   { id: "normal", label: "Normal", desc: "Patient tutor explaining clearly." },
   { id: "quiz", label: "Quiz", desc: "AI quizzes you, one question at a time." },
-  { id: "socratic", label: "Socratic", desc: "Only asks questions back — you do the thinking." },
+  { id: "socratic", label: "Socratic", desc: "Only asks questions back - you do the thinking." },
   { id: "flashcard", label: "Flashcards", desc: "Q then A, rapid-fire study cards." },
   { id: "exam_prep", label: "Exam prep", desc: "Mark-scheme rigour, exam command words." },
-  { id: "eli5", label: "ELI5", desc: "Explain like I'm 5 — pure analogies." },
+  { id: "eli5", label: "ELI5", desc: "Explain like I'm 5 - pure analogies." },
+];
+
+const MODEL_OPTIONS = [
+  { id: "gpt-5.4-nano", label: "GPT-5.4 nano", desc: "Fastest and cheapest." },
+  { id: "gpt-5.4-mini", label: "GPT-5.4 mini", desc: "Better answers, still cheap." },
+  { id: "gpt-5.4", label: "GPT-5.4", desc: "Strongest for hard tasks." },
 ];
 
 const CONTEXT_OPTIONS = [
@@ -32,7 +38,7 @@ const CONTEXT_OPTIONS = [
   { value: 0, label: "Whole chat", desc: "Full context (costliest)" },
 ];
 
-const DEFAULT_SETTINGS = { ai_mode: "normal", strictness: 5, context_window: 0 };
+const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0 };
 
 export default function ChatPage() {
   const { sessionId } = useParams();
@@ -278,7 +284,7 @@ export default function ChatPage() {
           )}
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.22em] text-black/45 truncate">
-              {sessionPersonas.length > 0 ? sessionPersonas.map(p => p.name).join(" · ") : subjectLabel}
+              {sessionPersonas.length > 0 ? sessionPersonas.map(p => p.name).join(" - ") : subjectLabel}
             </div>
             <div className="text-base sm:text-lg font-bold truncate">
               {activeSession?.title || "Start a new chat"}
@@ -293,7 +299,7 @@ export default function ChatPage() {
             data-testid="morning-quiz-btn"
             title="Generate a fast 6-question quiz from this chat"
           >
-            <Sun size={14} weight="fill" /> {busyAction === "quiz" ? "Brewing…" : "Morning quiz"}
+            <Sun size={14} weight="fill" /> {busyAction === "quiz" ? "Brewing..." : "Morning quiz"}
           </button>
           <button
             onClick={handleSummarise}
@@ -302,7 +308,7 @@ export default function ChatPage() {
             data-testid="summarise-btn"
             title="Save a study-note summary of this chat"
           >
-            <NotePencil size={14} weight="regular" /> {busyAction === "summary" ? "Writing…" : "Summary"}
+            <NotePencil size={14} weight="regular" /> {busyAction === "summary" ? "Writing..." : "Summary"}
           </button>
         </div>
       </div>
@@ -357,7 +363,7 @@ export default function ChatPage() {
                  "What shall we work on?"}
               </h2>
               <p className="text-black/50 mt-3 max-w-md mx-auto text-sm sm:text-base">
-                {isGroup ? "Each personality replies in turn — you'll see them debating and building on each other." :
+                {isGroup ? "Each personality replies in turn - you'll see them debating and building on each other." :
                  activeSession?.mode === "feynman" ? "I'm a curious student. Explain a topic and I'll keep asking until I really get it." :
                  activeSubject ? `Context from "${subjectLabel}" loaded.` : "Just type below."}
               </p>
@@ -394,7 +400,7 @@ export default function ChatPage() {
 
           {typingPersonaId && !streamingPersonaId && !streamingText && (
             <div className="text-xs text-black/45 italic pl-12 animate-fade-up" data-testid="typing-indicator">
-              {typingPersona ? `${typingPersona.name} is thinking…` : "Thinking…"}
+              {typingPersona ? `${typingPersona.name} is thinking...` : "Thinking..."}
             </div>
           )}
         </div>
@@ -440,7 +446,7 @@ export default function ChatPage() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 rows={1}
-                placeholder={listening ? "Listening… speak now" : (activeSession?.mode === "feynman" ? "Explain something to your curious student…" : "Ask anything…  (Shift+Enter for new line)")}
+                placeholder={listening ? "Listening... speak now" : (activeSession?.mode === "feynman" ? "Explain something to your curious student..." : "Ask anything...  (Shift+Enter for new line)")}
                 className="w-full resize-none rounded-3xl border border-black/15 px-5 py-3 pr-14 focus:outline-none focus:border-black bg-[#FAF8F5] text-base font-fraunces leading-relaxed block overflow-y-auto"
                 data-testid="chat-input-field"
                 style={{ minHeight: "48px", maxHeight: "280px" }}
@@ -469,7 +475,7 @@ export default function ChatPage() {
           </div>
           <div className="flex items-center gap-2 mt-1.5 px-1 text-[10px] uppercase tracking-[0.18em] text-black/35">
             <span data-testid="settings-summary">
-              {AI_MODES.find(m => m.id === settings.ai_mode)?.label || "Normal"} · Strictness {settings.strictness}/10 · {CONTEXT_OPTIONS.find(c => c.value === settings.context_window)?.label || "Whole chat"}
+              {MODEL_OPTIONS.find(m => m.id === settings.model)?.label || "GPT-5.4 nano"} - {AI_MODES.find(m => m.id === settings.ai_mode)?.label || "Normal"} - Strictness {settings.strictness}/10 - {CONTEXT_OPTIONS.find(c => c.value === settings.context_window)?.label || "Whole chat"}
             </span>
           </div>
         </div>
@@ -496,6 +502,29 @@ export default function ChatPage() {
               >
                 <X size={20} weight="regular" />
               </button>
+            </div>
+
+            {/* Model */}
+            <div className="mb-6">
+              <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2 flex items-center gap-1.5">
+                <Cpu size={11} weight="fill" /> Model
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                {MODEL_OPTIONS.map(m => {
+                  const active = settings.model === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => updateSetting({ model: m.id })}
+                      data-testid={`model-${m.id}`}
+                      className={`text-left p-3 rounded-2xl border transition-all ${active ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
+                    >
+                      <div className="text-sm font-bold">{m.label}</div>
+                      <div className={`text-[11px] mt-0.5 leading-snug ${active ? "text-white/70" : "text-black/55"}`}>{m.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Mode */}

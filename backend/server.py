@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 
-from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 import auth as auth_module
 from pypdf import PdfReader
 from docx import Document as DocxDocument
@@ -22,7 +22,7 @@ from docx import Document as DocxDocument
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-print("DEBUG KEY:", repr(os.environ.get('ANTHROPIC_API_KEY', 'NOT FOUND')))
+print("DEBUG OPENAI KEY:", "FOUND" if os.environ.get('OPENAI_API_KEY') else "NOT FOUND")
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -31,9 +31,16 @@ db = client[os.environ['DB_NAME']]
 auth_module.set_db(db)
 
 async def _charge_tokens(user: dict, resp, estimated_tokens: int = 0):
-    """Extract real token usage from Anthropic response and adjust the user's token count."""
+    """Extract real token usage from an AI response and adjust the user's token count."""
     try:
-        actual_tokens = (resp.usage.input_tokens or 0) + (resp.usage.output_tokens or 0)
+        usage = getattr(resp, "usage", None)
+        if hasattr(usage, "input_tokens") or hasattr(usage, "output_tokens"):
+            actual_tokens = (usage.input_tokens or 0) + (usage.output_tokens or 0)
+        else:
+            actual_tokens = (
+                (getattr(usage, "prompt_tokens", 0) or 0)
+                + (getattr(usage, "completion_tokens", 0) or 0)
+            )
         if actual_tokens > 0 and estimated_tokens > 0:
             token_diff = actual_tokens - estimated_tokens
             if token_diff != 0:
@@ -47,9 +54,66 @@ async def _charge_tokens(user: dict, resp, estimated_tokens: int = 0):
         pass  # Never block the response due to tracking failure
 
 
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-CLAUDE_MODEL = "claude-haiku-4-5-20251001"
-anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+FALLBACK_AI_MODEL = 'gpt-5.4-nano'
+DEFAULT_AI_MODEL = os.environ.get('DEFAULT_AI_MODEL', FALLBACK_AI_MODEL)
+AI_MODELS = {
+    "gpt-5.4-nano": {
+        "label": "GPT-5.4 nano",
+        "description": "Fastest and cheapest, closest to a Haiku-style default.",
+    },
+    "gpt-5.4-mini": {
+        "label": "GPT-5.4 mini",
+        "description": "Stronger but still cost-conscious.",
+    },
+    "gpt-5.4": {
+        "label": "GPT-5.4",
+        "description": "Best quality option for harder revision tasks.",
+    },
+}
+if DEFAULT_AI_MODEL not in AI_MODELS:
+    DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
+openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+
+def _normalise_model(model: Optional[str] = None) -> str:
+    candidate = model or DEFAULT_AI_MODEL
+    return candidate if candidate in AI_MODELS else DEFAULT_AI_MODEL
+
+
+def _session_model(settings: Optional[dict] = None) -> str:
+    return _normalise_model((settings or {}).get("model"))
+
+
+def _require_ai_client():
+    if not openai_client:
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+
+
+async def ai_complete(system: str, messages: List[dict], max_tokens: int, model: Optional[str] = None):
+    _require_ai_client()
+    return await openai_client.chat.completions.create(
+        model=_normalise_model(model),
+        max_completion_tokens=max_tokens,
+        messages=[{"role": "system", "content": system}, *messages],
+    )
+
+
+def ai_text(resp) -> str:
+    if not getattr(resp, "choices", None):
+        return ""
+    return resp.choices[0].message.content or ""
+
+
+async def ai_stream(system: str, messages: List[dict], max_tokens: int, model: Optional[str] = None):
+    _require_ai_client()
+    return await openai_client.chat.completions.create(
+        model=_normalise_model(model),
+        max_completion_tokens=max_tokens,
+        messages=[{"role": "system", "content": system}, *messages],
+        stream=True,
+        stream_options={"include_usage": True},
+    )
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -82,6 +146,7 @@ class SubjectUpdate(BaseModel):
 
 class ChatSessionSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
+    model: str = DEFAULT_AI_MODEL
     ai_mode: Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"] = "normal"
     strictness: int = 5
     context_window: int = 0
@@ -109,6 +174,7 @@ class ChatSessionCreate(BaseModel):
 
 
 class ChatSessionSettingsUpdate(BaseModel):
+    model: Optional[str] = None
     ai_mode: Optional[Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"]] = None
     strictness: Optional[int] = None
     context_window: Optional[int] = None
@@ -280,12 +346,12 @@ def extract_text_from_upload(filename: str, raw: bytes) -> str:
 # ---------- BASIC ----------
 @api_router.get("/")
 async def root():
-    return {"message": "Revisia API", "model": CLAUDE_MODEL}
+    return {"message": "Revisia API", "model": DEFAULT_AI_MODEL, "models": AI_MODELS}
 
 
 @api_router.get("/health")
 async def health():
-    return {"ok": True, "has_key": bool(ANTHROPIC_API_KEY)}
+    return {"ok": True, "has_key": bool(OPENAI_API_KEY)}
 
 
 # ---------- AUTH ROUTES ----------
@@ -451,6 +517,8 @@ async def update_session_settings(session_id: str, payload: ChatSessionSettingsU
         raise HTTPException(status_code=404, detail="Session not found")
     current = session.get('settings') or {}
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if 'model' in updates:
+        updates['model'] = _normalise_model(updates['model'])
     if 'strictness' in updates:
         updates['strictness'] = max(1, min(10, int(updates['strictness'])))
     if 'context_window' in updates:
@@ -511,8 +579,7 @@ async def get_messages(session_id: str, authorization: Optional[str] = Header(No
 
 @api_router.post("/chat/send", response_model=ChatMessage)
 async def send_message(payload: ChatSendRequest, authorization: Optional[str] = Header(None)):
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+    _require_ai_client()
 
     user = await auth_module.get_current_user(authorization)
 
@@ -522,6 +589,7 @@ async def send_message(payload: ChatSendRequest, authorization: Optional[str] = 
     session = await db.chat_sessions.find_one({"id": payload.session_id, "user_id": user["id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    model = _session_model(session.get('settings') or {})
 
     subject = None
     if session.get('subject_id'):
@@ -542,18 +610,13 @@ async def send_message(payload: ChatSendRequest, authorization: Optional[str] = 
     messages = [{"role": m['role'], "content": m['content']} for m in history_docs]
 
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=2048,
-            system=system_message,
-            messages=messages,
-        )
-        response_text = resp.content[0].text if resp.content else ""
+        resp = await ai_complete(system_message, messages, 2048, model)
+        response_text = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Claude error")
+        logger.exception("AI error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
 
     ai_msg = ChatMessage(session_id=payload.session_id, role="assistant", content=response_text)
@@ -644,8 +707,7 @@ def parse_worksheet_json(text: str) -> dict:
 
 @api_router.post("/worksheets/generate", response_model=Worksheet)
 async def generate_worksheet(req: WorksheetRequest, authorization: Optional[str] = Header(None)):
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
 
     estimated_tokens = 3500
@@ -657,18 +719,13 @@ async def generate_worksheet(req: WorksheetRequest, authorization: Optional[str]
 
     prompt = build_worksheet_prompt(req, subject)
     try:
-        response = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=4096,
-            system=WORKSHEET_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text
+        response = await ai_complete(WORKSHEET_SYSTEM, [{"role": "user", "content": prompt}], 4096)
+        raw = ai_text(response)
         await _charge_tokens(user, response, estimated_tokens)
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Claude error")
+        logger.exception("AI error")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
 
     try:
@@ -746,8 +803,7 @@ MARKER_SYSTEM = (
 
 @api_router.post("/worksheets/{worksheet_id}/mark", response_model=Worksheet)
 async def mark_worksheet(worksheet_id: str, payload: MarkRequest, authorization: Optional[str] = Header(None)):
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
 
     estimated_tokens = 2500
@@ -787,13 +843,8 @@ async def mark_worksheet(worksheet_id: str, payload: MarkRequest, authorization:
     prompt = "\n".join(lines)
 
     try:
-        response = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=2048,
-            system=MARKER_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text
+        response = await ai_complete(MARKER_SYSTEM, [{"role": "user", "content": prompt}], 2048)
+        raw = ai_text(response)
         await _charge_tokens(user, response, estimated_tokens)
     except HTTPException:
         raise
@@ -1122,8 +1173,7 @@ class CustomPersonaModel(BaseModel):
 @api_router.post("/personas/custom", response_model=CustomPersonaModel)
 async def create_custom_persona(req: CustomPersonaRequest, authorization: Optional[str] = Header(None)):
     user = await auth_module.get_current_user(authorization)
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     if not req.name.strip() or not req.brief.strip():
         raise HTTPException(status_code=400, detail="Name and brief are required")
 
@@ -1145,13 +1195,12 @@ async def create_custom_persona(req: CustomPersonaRequest, authorization: Option
         "No code fences, no extra text."
     )
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=1200,
-            system="You are a creative writing assistant that designs chat personas. Return ONLY valid JSON.",
-            messages=[{"role": "user", "content": gen_prompt}],
+        resp = await ai_complete(
+            "You are a creative writing assistant that designs chat personas. Return ONLY valid JSON.",
+            [{"role": "user", "content": gen_prompt}],
+            1200,
         )
-        raw = resp.content[0].text if resp.content else ""
+        raw = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
@@ -1216,8 +1265,7 @@ async def send_user_message(req: SendUserMessageRequest, authorization: Optional
 
 @api_router.post("/chat/stream-reply")
 async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = Header(None)):
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
 
     estimated_tokens = 2000
@@ -1232,6 +1280,7 @@ async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = H
         subject = await get_subject(session['subject_id'])
 
     settings = session.get('settings') or {}
+    model = _session_model(settings)
     mode_instructions = build_mode_instructions(settings)
 
     persona = await get_persona_async(req.persona_id)
@@ -1302,21 +1351,17 @@ async def stream_reply(req: StreamReplyRequest, authorization: Optional[str] = H
     async def event_stream():
         full_text = ""
         try:
-            async with anthropic_client.messages.stream(
-                model=CLAUDE_MODEL,
-                max_tokens=1500,
-                system=sys_msg,
-                messages=messages,
-            ) as stream:
-                async for text in stream.text_stream:
+            stream = await ai_stream(sys_msg, messages, 1500, model)
+            async for chunk in stream:
+                if getattr(chunk, "usage", None):
+                    await _charge_tokens(user, chunk, estimated_tokens)
+                    continue
+                if not getattr(chunk, "choices", None):
+                    continue
+                text = chunk.choices[0].delta.content or ""
+                if text:
                     full_text += text
                     yield f"data: {json.dumps({'delta': text})}\n\n"
-                # Charge real token usage once the stream completes.
-                try:
-                    final = await stream.get_final_message()
-                    await _charge_tokens(user, final, estimated_tokens)
-                except Exception:
-                    pass  # Never block the reply on usage tracking
             ai_msg = ChatMessage(
                 id=msg_id,
                 session_id=req.session_id,
@@ -1365,8 +1410,7 @@ class StudyNoteRequest(BaseModel):
 
 @api_router.post("/notes/generate", response_model=StudyNote)
 async def generate_notes(req: StudyNoteRequest, authorization: Optional[str] = Header(None)):
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
     subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
     depth_map = {
@@ -1395,13 +1439,12 @@ async def generate_notes(req: StudyNoteRequest, authorization: Optional[str] = H
     )
     prompt = "\n\n".join(parts)
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=max_tokens_map[req.depth],
-            system="You are an expert teacher and study-notes author. Return ONLY valid JSON, no prose, no code fences. Output MUST be valid parseable JSON.",
-            messages=[{"role": "user", "content": prompt}],
+        resp = await ai_complete(
+            "You are an expert teacher and study-notes author. Return ONLY valid JSON, no prose, no code fences. Output MUST be valid parseable JSON.",
+            [{"role": "user", "content": prompt}],
+            max_tokens_map[req.depth],
         )
-        raw = resp.content[0].text if resp.content else ""
+        raw = ai_text(resp)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
     try:
@@ -1450,8 +1493,7 @@ async def _build_chat_transcript(session_id: str, max_chars: int = 18000) -> tup
 
 @api_router.post("/chat/sessions/{session_id}/morning-quiz", response_model=Worksheet)
 async def morning_quiz(session_id: str, authorization: Optional[str] = Header(None)):
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
     transcript, session = await _build_chat_transcript(session_id)
 
@@ -1478,13 +1520,8 @@ async def morning_quiz(session_id: str, authorization: Optional[str] = Header(No
         '}'
     )
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=3000,
-            system=WORKSHEET_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = resp.content[0].text if resp.content else ""
+        resp = await ai_complete(WORKSHEET_SYSTEM, [{"role": "user", "content": prompt}], 3000)
+        raw = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
@@ -1522,8 +1559,7 @@ async def morning_quiz(session_id: str, authorization: Optional[str] = Header(No
 
 @api_router.post("/chat/sessions/{session_id}/summary", response_model=StudyNote)
 async def summarise_chat(session_id: str, authorization: Optional[str] = Header(None)):
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
     transcript, session = await _build_chat_transcript(session_id)
     subject = None
@@ -1546,13 +1582,12 @@ async def summarise_chat(session_id: str, authorization: Optional[str] = Header(
         '}'
     )
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=3000,
-            system="You write tight, useful revision notes. Return ONLY valid JSON.",
-            messages=[{"role": "user", "content": prompt}],
+        resp = await ai_complete(
+            "You write tight, useful revision notes. Return ONLY valid JSON.",
+            [{"role": "user", "content": prompt}],
+            3000,
         )
-        raw = resp.content[0].text if resp.content else ""
+        raw = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
@@ -1632,13 +1667,8 @@ async def worksheet_from_notes(note_id: str, req: NoteWorksheetRequest, authoriz
     )
     prompt = build_worksheet_prompt(wreq, fake_subject)
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=4000,
-            system=WORKSHEET_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = resp.content[0].text if resp.content else ""
+        resp = await ai_complete(WORKSHEET_SYSTEM, [{"role": "user", "content": prompt}], 4000)
+        raw = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
@@ -1687,8 +1717,7 @@ class CheatSheet(BaseModel):
 
 @api_router.post("/worksheets/{worksheet_id}/cheat-sheet", response_model=CheatSheet)
 async def generate_cheat_sheet(worksheet_id: str, authorization: Optional[str] = Header(None)):
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
     ws = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]}, {"_id": 0})
     if not ws:
@@ -1737,13 +1766,12 @@ async def generate_cheat_sheet(worksheet_id: str, authorization: Optional[str] =
         "No code fences, no prose outside the JSON."
     )
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=3000,
-            system="You are a kind, expert revision coach. Return ONLY valid JSON.",
-            messages=[{"role": "user", "content": prompt}],
+        resp = await ai_complete(
+            "You are a kind, expert revision coach. Return ONLY valid JSON.",
+            [{"role": "user", "content": prompt}],
+            3000,
         )
-        raw = resp.content[0].text if resp.content else ""
+        raw = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
@@ -1926,8 +1954,7 @@ async def start_exam_debrief(exam_id: str, authorization: Optional[str] = Header
 
 @api_router.get("/exams/{exam_id}/morning-brief")
 async def get_morning_brief(exam_id: str, authorization: Optional[str] = Header(None)):
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
     exam = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
     if not exam:
@@ -1961,13 +1988,12 @@ async def get_morning_brief(exam_id: str, authorization: Optional[str] = Header(
         '}'
     )
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=600,
-            system="You are a kind, calm revision coach. Return ONLY valid JSON.",
-            messages=[{"role": "user", "content": prompt}],
+        resp = await ai_complete(
+            "You are a kind, calm revision coach. Return ONLY valid JSON.",
+            [{"role": "user", "content": prompt}],
+            600,
         )
-        raw = resp.content[0].text if resp.content else ""
+        raw = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
@@ -2035,8 +2061,7 @@ async def get_plan(exam_id: str, authorization: Optional[str] = Header(None)):
 
 @api_router.post("/exams/{exam_id}/plan", response_model=RevisionPlan)
 async def generate_plan(exam_id: str, authorization: Optional[str] = Header(None)):
-    if not anthropic_client:
-        raise HTTPException(status_code=500, detail="Anthropic key not configured")
+    _require_ai_client()
     user = await auth_module.get_current_user(authorization)
     exam = await db.exams.find_one({"id": exam_id, "user_id": user["id"]}, {"_id": 0})
     if not exam:
@@ -2100,13 +2125,12 @@ async def generate_plan(exam_id: str, authorization: Optional[str] = Header(None
         '}'
     )
     try:
-        resp = await anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=7000,
-            system="You are an expert revision coach. Return ONLY valid, parseable JSON.",
-            messages=[{"role": "user", "content": prompt}],
+        resp = await ai_complete(
+            "You are an expert revision coach. Return ONLY valid, parseable JSON.",
+            [{"role": "user", "content": prompt}],
+            7000,
         )
-        raw = resp.content[0].text if resp.content else ""
+        raw = ai_text(resp)
         await _charge_tokens(user, resp, estimated_tokens)
         data = parse_worksheet_json(raw)
     except Exception as e:
@@ -2318,4 +2342,4 @@ async def startup_db_client():
 async def shutdown_db_client():
     client.close()
 
-logger.info("Revisia API ready, model: %s, has_key: %s", CLAUDE_MODEL, bool(ANTHROPIC_API_KEY))
+logger.info("Revisia API ready, model: %s, has_key: %s", DEFAULT_AI_MODEL, bool(OPENAI_API_KEY))
