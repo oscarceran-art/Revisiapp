@@ -1,7 +1,6 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
-import { ThemeProvider, useTheme } from "next-themes";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { TimerProvider } from "@/context/TimerContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -64,32 +63,19 @@ function AppRoutes() {
   );
 }
 
-function AppToaster() {
-  const { resolvedTheme } = useTheme();
-  return (
-    <Toaster
-      position="top-right"
-      theme={resolvedTheme === "dark" ? "dark" : "light"}
-      toastOptions={{ style: { fontFamily: "Nunito, sans-serif" } }}
-    />
-  );
-}
-
 function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <div className="App">
-        <AuthProvider>
-          <SidebarProvider>
-            <TimerProvider>
-              <AppRoutes />
-              <FloatingTimer />
-            </TimerProvider>
-          </SidebarProvider>
-        </AuthProvider>
-        <AppToaster />
-      </div>
-    </ThemeProvider>
+    <div className="App">
+      <AuthProvider>
+        <SidebarProvider>
+          <TimerProvider>
+            <AppRoutes />
+            <FloatingTimer />
+          </TimerProvider>
+        </SidebarProvider>
+      </AuthProvider>
+      <Toaster position="top-right" theme="light" toastOptions={{ style: { fontFamily: "Nunito, sans-serif" } }} />
+    </div>
   );
 }
 

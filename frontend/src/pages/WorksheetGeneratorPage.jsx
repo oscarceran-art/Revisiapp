@@ -73,43 +73,43 @@ export default function WorksheetGeneratorPage() {
   return (
     <div className="min-h-screen pt-20 md:pt-14 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-generator-page">
       <div className="max-w-2xl mx-auto">
-        <button onClick={() => navigate(-1)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5 mb-6">
+        <button onClick={() => navigate(-1)} className="text-sm text-black/50 hover:text-black flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Back
         </button>
 
         <div className="mb-8">
-          <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">New paper</div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">New paper</div>
           <h1 className="display text-4xl md:text-5xl mt-2">Design your worksheet</h1>
-          <p className="text-muted-foreground mt-3">A quick quiz, a full mock, or import a real past paper.</p>
+          <p className="text-black/55 mt-3">A quick quiz, a full mock, or import a real past paper.</p>
         </div>
 
         {/* Mode toggle */}
-        <div className="flex gap-2 mb-6 bg-black/[0.04] dark:bg-white/[0.06] rounded-2xl p-1">
+        <div className="flex gap-2 mb-6 bg-black/[0.04] rounded-2xl p-1">
           <button
             onClick={() => setMode("topic")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors ${mode === "topic" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors ${mode === "topic" ? "bg-white text-black shadow-sm" : "text-black/55 hover:text-black"}`}
             data-testid="mode-topic"
           >
             <Sparkle size={14} weight="fill" /> From topic
           </button>
           <button
             onClick={() => setMode("past-paper")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors ${mode === "past-paper" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors ${mode === "past-paper" ? "bg-white text-black shadow-sm" : "text-black/55 hover:text-black"}`}
             data-testid="mode-past-paper"
           >
             <UploadSimple size={14} weight="regular" /> Upload past paper
           </button>
         </div>
 
-        <div className="glass-card rounded-2xl sm:rounded-3xl p-5 sm:p-7 space-y-5 sm:space-y-6">
+        <div className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-5 sm:p-7 space-y-5 sm:space-y-6">
           {mode === "topic" ? (
             <>
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Subject</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Subject</label>
                 <select
                   value={form.subject_id}
                   onChange={e => setForm(v => ({ ...v, subject_id: e.target.value }))}
-                  className="w-full border border-border rounded-2xl px-4 py-3 bg-background focus:outline-none focus:border-foreground"
+                  className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black"
                   data-testid="worksheet-subject-select"
                 >
                   <option value="">General (no subject)</option>
@@ -118,38 +118,38 @@ export default function WorksheetGeneratorPage() {
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Topic</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Topic</label>
                 <input
                   value={form.topic}
                   onChange={e => setForm(v => ({ ...v, topic: e.target.value }))}
                   placeholder="e.g. Photosynthesis"
-                  className="w-full border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-foreground"
+                  className="w-full border border-black/15 rounded-2xl px-4 py-3 focus:outline-none focus:border-black"
                   data-testid="worksheet-topic-input"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">
-                  Number of questions <span className="text-foreground ml-2">{form.num_questions}</span>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">
+                  Number of questions <span className="text-black ml-2">{form.num_questions}</span>
                 </label>
                 <input
                   type="range" min={3} max={30} step={1}
                   value={form.num_questions}
                   onChange={e => setForm(v => ({ ...v, num_questions: e.target.value }))}
-                  className="w-full accent-foreground"
+                  className="w-full accent-black"
                   data-testid="worksheet-count-slider"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1"><span>3</span><span>Full mock (30)</span></div>
+                <div className="flex justify-between text-xs text-black/40 mt-1"><span>3</span><span>Full mock (30)</span></div>
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Difficulty</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Difficulty</label>
                 <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                   {DIFFICULTIES.map(d => (
                     <button
                       key={d}
                       onClick={() => setForm(v => ({ ...v, difficulty: d }))}
-                      className={`text-xs sm:text-sm py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border transition-colors capitalize ${form.difficulty === d ? "bg-foreground text-primary-foreground border-foreground" : "bg-background border-border hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"}`}
+                      className={`text-xs sm:text-sm py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border transition-colors capitalize ${form.difficulty === d ? "bg-black text-white border-black" : "bg-white border-black/15 hover:bg-black/[0.04]"}`}
                       data-testid={`difficulty-${d}`}
                     >
                       {d}
@@ -159,11 +159,11 @@ export default function WorksheetGeneratorPage() {
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Question style</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Question style</label>
                 <select
                   value={form.question_type}
                   onChange={e => setForm(v => ({ ...v, question_type: e.target.value }))}
-                  className="w-full border border-border rounded-2xl px-4 py-3 bg-background focus:outline-none focus:border-foreground"
+                  className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black"
                   data-testid="question-type-select"
                 >
                   {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -171,13 +171,13 @@ export default function WorksheetGeneratorPage() {
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Extra instructions (optional)</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Extra instructions (optional)</label>
                 <textarea
                   rows={3}
                   value={form.extra_instructions}
                   onChange={e => setForm(v => ({ ...v, extra_instructions: e.target.value }))}
                   placeholder="e.g. Focus on Krebs cycle, GCSE level"
-                  className="w-full border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-foreground text-sm"
+                  className="w-full border border-black/15 rounded-2xl px-4 py-3 focus:outline-none focus:border-black text-sm"
                   data-testid="worksheet-extra-input"
                 />
               </div>
@@ -195,11 +195,11 @@ export default function WorksheetGeneratorPage() {
           ) : (
             <>
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Subject</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Subject</label>
                 <select
                   value={form.subject_id}
                   onChange={e => setForm(v => ({ ...v, subject_id: e.target.value }))}
-                  className="w-full border border-border rounded-2xl px-4 py-3 bg-background focus:outline-none focus:border-foreground"
+                  className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black"
                   data-testid="pastpaper-subject-select"
                 >
                   <option value="">General (no subject)</option>
@@ -208,10 +208,10 @@ export default function WorksheetGeneratorPage() {
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Past paper file</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Past paper file</label>
                 <div
                   onClick={() => fileRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-colors ${file ? "border-border bg-black/[0.02]" : "border-border hover:border-foreground/30 hover:bg-black/[0.02]"}`}
+                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-colors ${file ? "border-black bg-black/[0.02]" : "border-black/15 hover:border-black/30 hover:bg-black/[0.02]"}`}
                   data-testid="pastpaper-dropzone"
                 >
                   <input
@@ -224,9 +224,9 @@ export default function WorksheetGeneratorPage() {
                   />
                   {file ? (
                     <div className="flex flex-col items-center gap-1">
-                      <FileText size={28} weight="regular" className="text-muted-foreground" />
+                      <FileText size={28} weight="regular" className="text-black/60" />
                       <div className="text-sm font-bold mt-1">{file.name}</div>
-                      <div className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</div>
+                      <div className="text-xs text-black/45">{(file.size / 1024).toFixed(0)} KB</div>
                       <button
                         onClick={(e) => { e.stopPropagation(); setFile(null); if (fileRef.current) fileRef.current.value = ""; }}
                         className="text-xs text-red-500 hover:text-red-700 mt-1 underline"
@@ -236,22 +236,22 @@ export default function WorksheetGeneratorPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-1">
-                      <UploadSimple size={28} weight="regular" className="text-muted-foreground" />
-                      <div className="text-sm font-bold mt-1 text-muted-foreground">Click to upload a past paper</div>
-                      <div className="text-xs text-muted-foreground">PDF, DOCX, or TXT</div>
+                      <UploadSimple size={28} weight="regular" className="text-black/30" />
+                      <div className="text-sm font-bold mt-1 text-black/60">Click to upload a past paper</div>
+                      <div className="text-xs text-black/40">PDF, DOCX, or TXT</div>
                     </div>
                   )}
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Difficulty (for AI marking)</label>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Difficulty (for AI marking)</label>
                 <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                   {DIFFICULTIES.map(d => (
                     <button
                       key={d}
                       onClick={() => setForm(v => ({ ...v, difficulty: d }))}
-                      className={`text-xs sm:text-sm py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border transition-colors capitalize ${form.difficulty === d ? "bg-foreground text-primary-foreground border-foreground" : "bg-background border-border hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"}`}
+                      className={`text-xs sm:text-sm py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border transition-colors capitalize ${form.difficulty === d ? "bg-black text-white border-black" : "bg-white border-black/15 hover:bg-black/[0.04]"}`}
                       data-testid={`pastpaper-difficulty-${d}`}
                     >
                       {d}
@@ -261,17 +261,17 @@ export default function WorksheetGeneratorPage() {
               </div>
 
               <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">
-                  Max questions <span className="text-foreground ml-2">{form.num_questions === 30 ? "All" : form.num_questions}</span>
+                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">
+                  Max questions <span className="text-black ml-2">{form.num_questions === 30 ? "All" : form.num_questions}</span>
                 </label>
                 <input
                   type="range" min={3} max={30} step={1}
                   value={form.num_questions}
                   onChange={e => setForm(v => ({ ...v, num_questions: Number(e.target.value) }))}
-                  className="w-full accent-foreground"
+                  className="w-full accent-black"
                   data-testid="pastpaper-count-slider"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1"><span>3</span><span>All</span></div>
+                <div className="flex justify-between text-xs text-black/40 mt-1"><span>3</span><span>All</span></div>
               </div>
 
               <button

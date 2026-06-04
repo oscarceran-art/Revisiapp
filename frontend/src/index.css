@@ -12,32 +12,35 @@ body {
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: #FAF8F5;
+    color: #1a1a1a;
 }
 
-::selection { background: #1a1a1a; color: #FAF8F5; }
-.dark ::selection { background: #FAF8F5; color: #1a1a1a; }
-
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 999px; }
-*::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
-.dark *::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
-.dark *::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-
-textarea::-webkit-scrollbar { display: none; }
-textarea { scrollbar-width: none; -ms-overflow-style: none; }
-
-.display, h1.display, h2.display {
-    font-weight: 800;
-    letter-spacing: -0.02em;
-}
-
+/* Chat-only Fraunces utility */
 .font-fraunces {
     font-family: 'Fraunces', serif !important;
     font-optical-sizing: auto;
     font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 14;
 }
 
+::selection { background: #1a1a1a; color: #FAF8F5; }
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+
+/* Hide textarea scrollbar — overlay scrollbar appears as a thin rectangle on hover */
+textarea::-webkit-scrollbar { display: none; }
+textarea { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Display headings — inherit family (Nunito by default, Fraunces inside .font-fraunces) */
+.display, h1.display, h2.display {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+/* Page transition */
 .page-fade {
     animation: page-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -48,7 +51,7 @@ textarea { scrollbar-width: none; -ms-overflow-style: none; }
 
 @layer base {
     :root {
-        --background: 38 20% 98%;
+        --background: 38 33% 97%;       /* cream */
         --foreground: 0 0% 10%;
         --card: 0 0% 100%;
         --card-foreground: 0 0% 10%;
@@ -69,97 +72,11 @@ textarea { scrollbar-width: none; -ms-overflow-style: none; }
         --ring: 0 0% 10%;
         --radius: 1rem;
     }
-
-    .dark {
-        --background: 240 10% 4%;
-        --foreground: 0 0% 93%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 93%;
-        --popover: 240 6% 10%;
-        --popover-foreground: 0 0% 93%;
-        --primary: 0 0% 93%;
-        --primary-foreground: 240 10% 4%;
-        --secondary: 240 6% 14%;
-        --secondary-foreground: 0 0% 93%;
-        --muted: 240 6% 14%;
-        --muted-foreground: 0 0% 60%;
-        --accent: 240 6% 14%;
-        --accent-foreground: 0 0% 93%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 93%;
-        --border: 240 6% 16%;
-        --input: 240 6% 16%;
-        --ring: 0 0% 93%;
-    }
 }
 
 @layer base {
     * { @apply border-border; }
     body { @apply bg-background text-foreground; }
-}
-
-/* === Glass + Iridescent Utilities === */
-
-.glass-card {
-    background: rgba(255,255,255,0.55);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255,255,255,0.25);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
-}
-.dark .glass-card {
-    background: rgba(255,255,255,0.035);
-    border-color: rgba(255,255,255,0.06);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-}
-
-.glass-panel {
-    background: rgba(255,255,255,0.35);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.15);
-}
-.dark .glass-panel {
-    background: rgba(255,255,255,0.025);
-    border-color: rgba(255,255,255,0.04);
-}
-
-@keyframes iridescent-shift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-.iridescent-subtle {
-    background: linear-gradient(135deg,
-        rgba(244,114,182,0.08), rgba(167,139,250,0.05),
-        rgba(96,165,250,0.08), rgba(244,114,182,0.04));
-    background-size: 300% 300%;
-    animation: iridescent-shift 10s ease-in-out infinite;
-}
-
-.iridescent-strong {
-    background: linear-gradient(135deg,
-        rgba(244,114,182,0.18), rgba(167,139,250,0.12),
-        rgba(96,165,250,0.18), rgba(244,114,182,0.1));
-    background-size: 300% 300%;
-    animation: iridescent-shift 8s ease-in-out infinite;
-}
-
-.dark .iridescent-subtle {
-    background: linear-gradient(135deg,
-        rgba(244,114,182,0.12), rgba(167,139,250,0.08),
-        rgba(96,165,250,0.12), rgba(244,114,182,0.06));
-}
-.dark .iridescent-strong {
-    background: linear-gradient(135deg,
-        rgba(244,114,182,0.25), rgba(167,139,250,0.18),
-        rgba(96,165,250,0.25), rgba(244,114,182,0.15));
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .iridescent-subtle, .iridescent-strong {
-        animation: none;
-    }
 }
 
 @media print {
@@ -168,6 +85,7 @@ textarea { scrollbar-width: none; -ms-overflow-style: none; }
     .print-area { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
 }
 
+/* Smooth chat streaming */
 .streaming-bubble {
     transform: translateZ(0);
     will-change: contents;
@@ -199,5 +117,4 @@ textarea { scrollbar-width: none; -ms-overflow-style: none; }
 .prose-chat ol { list-style: decimal; padding-left: 1.4rem; margin: 0.4em 0; }
 .prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; margin: 0.6em 0 0.3em; }
 .prose-chat code { background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 6px; }
-.dark .prose-chat code { background: rgba(255,255,255,0.08); }
 .prose-chat strong { font-weight: 700; }

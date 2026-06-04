@@ -30,13 +30,13 @@ export default function NoteViewerPage() {
     }
   };
 
-  if (!note) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
+  if (!note) return <div className="min-h-screen flex items-center justify-center text-black/40">Loading…</div>;
 
   return (
     <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="note-viewer">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-          <button onClick={() => navigate("/")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+          <button onClick={() => navigate("/")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5">
             <ArrowLeft size={14} weight="bold" /> Home
           </button>
           <button
@@ -49,14 +49,14 @@ export default function NoteViewerPage() {
           </button>
         </div>
 
-        <div className="glass-card rounded-3xl p-6 sm:p-10 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        <div className="bg-white border border-black/10 rounded-3xl p-6 sm:p-10 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-black/45">
             <BookOpen size={12} weight="fill" /> {note.subject_name || "Notes"}
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl mt-2 font-extrabold leading-tight">{note.title}</h1>
           {note.summary && (
-            <div className="mt-5 border-l-2 border-border pl-5">
-              <p className="text-foreground/65 italic text-base sm:text-lg leading-relaxed">{note.summary}</p>
+            <div className="mt-5 border-l-2 border-black/15 pl-5">
+              <p className="text-black/65 italic text-base sm:text-lg leading-relaxed">{note.summary}</p>
             </div>
           )}
 
@@ -64,13 +64,13 @@ export default function NoteViewerPage() {
             {note.sections.map((s, i) => (
               <div key={i} data-testid={`note-section-${i}`}>
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="w-8 h-8 rounded-full bg-foreground text-primary-foreground text-sm flex items-center justify-center font-bold shrink-0">{i + 1}</span>
+                  <span className="w-8 h-8 rounded-full bg-black text-white text-sm flex items-center justify-center font-bold shrink-0">{i + 1}</span>
                   <h2 className="text-xl sm:text-2xl font-extrabold">{s.heading.replace(/^\d+\.?\s*/, "")}</h2>
                 </div>
-                <ul className="space-y-3 pl-4 text-[15px] sm:text-base leading-relaxed text-foreground/85">
+                <ul className="space-y-3 pl-4 text-[15px] sm:text-base leading-relaxed text-black/85">
                   {s.bullets.map((b, j) => (
                     <li key={j} className="flex gap-3">
-                      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-foreground/30 shrink-0" />
+                      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-black/30 shrink-0" />
                       <span>{b}</span>
                     </li>
                   ))}
@@ -80,17 +80,17 @@ export default function NoteViewerPage() {
           </div>
 
           {note.key_terms && note.key_terms.length > 0 && (
-            <div className="mt-10 pt-8 border-t border-border">
-              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-4">
+            <div className="mt-10 pt-8 border-t border-black/10">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-black/45 mb-4">
                 <Sparkle size={11} weight="fill" /> Key terms — {note.key_terms.length}
               </div>
               <div className="flex flex-wrap gap-2">
                 {note.key_terms.map((t, i) => (
                   <div key={i} className="group relative">
-                    <span tabIndex={0} className="inline-block bg-foreground text-primary-foreground text-[13px] font-bold px-3 py-1.5 rounded-full cursor-default outline-none focus:ring-2 focus:ring-pink-400/50">{t.term}</span>
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-foreground text-primary-foreground text-[13px] p-3 rounded-2xl opacity-0 invisible group-hover:opacity-100 group-focus-within:opacity-100 group-hover:visible group-focus-within:visible transition-all pointer-events-none z-10 shadow-lg">
+                    <span tabIndex={0} className="inline-block bg-black text-white text-[13px] font-bold px-3 py-1.5 rounded-full cursor-default outline-none focus:ring-2 focus:ring-pink-400/50">{t.term}</span>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-black text-white text-[13px] p-3 rounded-2xl opacity-0 invisible group-hover:opacity-100 group-focus-within:opacity-100 group-hover:visible group-focus-within:visible transition-all pointer-events-none z-10 shadow-lg">
                       {t.definition}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-foreground" />
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-black" />
                     </div>
                   </div>
                 ))}
