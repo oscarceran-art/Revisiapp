@@ -74,28 +74,28 @@ AI_MODELS = {
 if DEFAULT_AI_MODEL not in AI_MODELS:
     DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
 IMAGE_MODELS = {
-    "chatgpt-2": {
-        "label": "ChatGPT 2",
-        "description": "Best quality with HD & wide sizes (1792×1024).",
+    "gpt-image-2": {
+        "label": "GPT Image 2",
+        "description": "Best quality — readable text, complex prompts.",
     },
-    "chatgpt-1.5": {
-        "label": "ChatGPT 1.5",
-        "description": "Mid-tier, supports HD & wide sizes.",
+    "gpt-image-1.5": {
+        "label": "GPT Image 1.5",
+        "description": "Previous-gen with good quality.",
     },
-    "chatgpt-1": {
-        "label": "ChatGPT 1",
+    "gpt-image-1": {
+        "label": "GPT Image 1",
         "description": "Standard quality, good for most tasks.",
     },
-    "chatgpt-1-mini": {
-        "label": "ChatGPT 1 Mini",
-        "description": "Fast & cheap, lower resolution (up to 1024×1024).",
+    "gpt-image-1-mini": {
+        "label": "GPT Image 1 Mini",
+        "description": "Fast & cheap, rapid drafts.",
     },
 }
 IMAGE_MODEL_MAP = {
-    "chatgpt-2": "dall-e-3",
-    "chatgpt-1.5": "dall-e-3",
-    "chatgpt-1": "dall-e-3",
-    "chatgpt-1-mini": "dall-e-3",
+    "gpt-image-2": "gpt-image-2",
+    "gpt-image-1.5": "gpt-image-1.5",
+    "gpt-image-1": "gpt-image-1",
+    "gpt-image-1-mini": "gpt-image-1-mini",
 }
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
@@ -174,10 +174,10 @@ class ChatSessionSettings(BaseModel):
     ai_mode: Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"] = "normal"
     strictness: int = 5
     context_window: int = 0
-    image_model: Literal["off", "chatgpt-1-mini", "chatgpt-1", "chatgpt-1.5", "chatgpt-2"] = "off"
+    image_model: Literal["off", "gpt-image-1-mini", "gpt-image-1", "gpt-image-1.5", "gpt-image-2"] = "off"
     image_size: str = "1024x1024"
-    image_quality: Literal["standard", "hd"] = "standard"
-    image_style: Literal["vivid", "natural"] = "vivid"
+    image_quality: Literal["low", "medium", "high"] = "medium"
+    image_style: Optional[Literal["vivid", "natural"]] = None
 
 
 class ChatSession(BaseModel):
@@ -206,19 +206,18 @@ class ChatSessionSettingsUpdate(BaseModel):
     ai_mode: Optional[Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"]] = None
     strictness: Optional[int] = None
     context_window: Optional[int] = None
-    image_model: Optional[Literal["off", "chatgpt-1-mini", "chatgpt-1", "chatgpt-1.5", "chatgpt-2"]] = None
+    image_model: Optional[Literal["off", "gpt-image-1-mini", "gpt-image-1", "gpt-image-1.5", "gpt-image-2"]] = None
     image_size: Optional[str] = None
-    image_quality: Optional[Literal["standard", "hd"]] = None
+    image_quality: Optional[Literal["low", "medium", "high"]] = None
     image_style: Optional[Literal["vivid", "natural"]] = None
 
 
 class ImageGenerationRequest(BaseModel):
     prompt: str
-    model: Literal["chatgpt-1-mini", "chatgpt-1", "chatgpt-1.5", "chatgpt-2"] = "chatgpt-1"
+    model: Literal["gpt-image-1-mini", "gpt-image-1", "gpt-image-1.5", "gpt-image-2"] = "gpt-image-1"
     n: int = 1
     size: str = "1024x1024"
-    quality: Literal["standard", "hd"] = "standard"
-    style: Literal["vivid", "natural"] = "vivid"
+    quality: Literal["low", "medium", "high"] = "medium"
 
 
 class ChatMessage(BaseModel):
@@ -566,10 +565,10 @@ async def update_session_settings(session_id: str, payload: ChatSessionSettingsU
         updates['context_window'] = max(0, int(updates['context_window']))
     if 'image_size' in updates:
         valid = {
-            "chatgpt-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
-            "chatgpt-1": ["1024x1024", "1792x1024", "1024x1792"],
-            "chatgpt-1.5": ["1024x1024", "1792x1024", "1024x1792"],
-            "chatgpt-2": ["1024x1024", "1792x1024", "1024x1792"],
+            "gpt-image-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
+            "gpt-image-1": ["1024x1024", "1792x1024", "1024x1792"],
+            "gpt-image-1.5": ["1024x1024", "1792x1024", "1024x1792"],
+            "gpt-image-2": ["1024x1024", "1792x1024", "1024x1792"],
         }
         model = updates.get('image_model') or current.get('image_model', 'off')
         if updates['image_size'] not in valid.get(model, []):
@@ -2371,12 +2370,11 @@ async def search(q: str = "", authorization: Optional[str] = Header(None)):
 
 # ---------- IMAGE GENERATION ----------
 IMAGE_SIZE_OPTIONS = {
-    "chatgpt-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
-    "chatgpt-1": ["1024x1024", "1792x1024", "1024x1792"],
-    "chatgpt-1.5": ["1024x1024", "1792x1024", "1024x1792"],
-    "chatgpt-2": ["1024x1024", "1792x1024", "1024x1792"],
+    "gpt-image-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
+    "gpt-image-1": ["1024x1024", "1792x1024", "1024x1792"],
+    "gpt-image-1.5": ["1024x1024", "1792x1024", "1024x1792"],
+    "gpt-image-2": ["1024x1024", "1792x1024", "1024x1792"],
 }
-DALLE3_MODELS = {"chatgpt-2", "chatgpt-1.5"}
 
 
 @api_router.post("/images/generate")
@@ -2395,15 +2393,13 @@ async def generate_image(req: ImageGenerationRequest, authorization: Optional[st
     if req.size not in valid_sizes:
         raise HTTPException(status_code=400, detail=f"Size {req.size} not valid for {req.model}. Choose from: {', '.join(valid_sizes)}")
 
-    kwargs = dict(model=api_model, prompt=req.prompt, n=min(max(1, req.n), 4), size=req.size)
-    if req.model in DALLE3_MODELS:
-        kwargs["quality"] = req.quality
-        kwargs["style"] = req.style
+    kwargs = dict(model=api_model, prompt=req.prompt, n=min(max(1, req.n), 4), size=req.size, quality=req.quality)
 
     try:
         resp = await openai_client.images.generate(**kwargs)
-        url = resp.data[0].url
-        return {"url": url, "revised_prompt": resp.data[0].revised_prompt if hasattr(resp.data[0], "revised_prompt") else None}
+        b64 = resp.data[0].b64_json
+        data_url = f"data:image/png;base64,{b64}"
+        return {"url": data_url, "revised_prompt": resp.data[0].revised_prompt if hasattr(resp.data[0], "revised_prompt") else None}
     except Exception as e:
         logger.exception("Image generation failed")
         raise HTTPException(status_code=502, detail=f"Image generation error: {str(e)}")

@@ -40,29 +40,29 @@ const CONTEXT_OPTIONS = [
 
 const IMAGE_MODEL_OPTIONS = [
   { id: "off", label: "Off", desc: "No image generation" },
-  { id: "chatgpt-1-mini", label: "ChatGPT 1 Mini", desc: "Fast & cheap — lower resolution." },
-  { id: "chatgpt-1", label: "ChatGPT 1", desc: "Standard quality, good for most tasks." },
-  { id: "chatgpt-1.5", label: "ChatGPT 1.5", desc: "Mid-tier with HD & wide sizes." },
-  { id: "chatgpt-2", label: "ChatGPT 2", desc: "Best quality with HD & wide sizes." },
+  { id: "gpt-image-1-mini", label: "GPT Image 1 Mini", desc: "Fast & cheap — rapid drafts, lower resolution." },
+  { id: "gpt-image-1", label: "GPT Image 1", desc: "Standard generation, good for most tasks." },
+  { id: "gpt-image-1.5", label: "GPT Image 1.5", desc: "Previous-gen with better quality." },
+  { id: "gpt-image-2", label: "GPT Image 2", desc: "Best quality, readable text, complex prompts." },
 ];
 
 const IMAGE_SIZE_OPTIONS = {
-  "chatgpt-2": [
+  "gpt-image-2": [
     { value: "1024x1024", label: "Square (1024×1024)" },
     { value: "1792x1024", label: "Wide (1792×1024)" },
     { value: "1024x1792", label: "Tall (1024×1792)" },
   ],
-  "chatgpt-1.5": [
+  "gpt-image-1.5": [
     { value: "1024x1024", label: "Square (1024×1024)" },
     { value: "1792x1024", label: "Wide (1792×1024)" },
     { value: "1024x1792", label: "Tall (1024×1792)" },
   ],
-  "chatgpt-1": [
-    { value: "1024x1024", label: "Large (1024×1024)" },
+  "gpt-image-1": [
+    { value: "1024x1024", label: "Square (1024×1024)" },
     { value: "1792x1024", label: "Wide (1792×1024)" },
     { value: "1024x1792", label: "Tall (1024×1792)" },
   ],
-  "chatgpt-1-mini": [
+  "gpt-image-1-mini": [
     { value: "1024x1024", label: "Square (1024×1024)" },
     { value: "1792x1024", label: "Wide (1792×1024)" },
     { value: "1024x1792", label: "Tall (1024×1792)" },
@@ -70,16 +70,12 @@ const IMAGE_SIZE_OPTIONS = {
 };
 
 const IMAGE_QUALITY_OPTIONS = [
-  { value: "standard", label: "Standard", desc: "Faster, cheaper" },
-  { value: "hd", label: "HD", desc: "Higher detail (DALL-E 3 only)" },
+  { value: "low", label: "Low", desc: "Fastest, cheapest" },
+  { value: "medium", label: "Medium", desc: "Balanced speed & quality" },
+  { value: "high", label: "High", desc: "Best quality, slower" },
 ];
 
-const IMAGE_STYLE_OPTIONS = [
-  { value: "vivid", label: "Vivid", desc: "Hyper-real & dramatic" },
-  { value: "natural", label: "Natural", desc: "More photo-like" },
-];
-
-const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0, image_model: "off", image_size: "1024x1024", image_quality: "standard", image_style: "vivid" };
+const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0, image_model: "off", image_size: "1024x1024", image_quality: "medium" };
 
 export default function ChatPage() {
   const { sessionId } = useParams();
@@ -309,7 +305,7 @@ export default function ChatPage() {
       await sendUserMessage(sessionId, prompt);
       const result = await generateImage({
         prompt, model: settings.image_model, size: settings.image_size,
-        quality: settings.image_quality, style: settings.image_style,
+        quality: settings.image_quality,
       });
       const imgMsg = { id: `img-${Date.now()}`, role: "assistant", content: `![${prompt}](${result.url})` };
       setMessages(prev => [...prev, imgMsg]);
@@ -718,49 +714,24 @@ export default function ChatPage() {
                     </div>
                   </div>
 
-                  {["chatgpt-2", "chatgpt-1.5"].includes(settings.image_model) && (
-                    <>
-                      {/* Quality */}
-                      <div className="mb-3">
-                        <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Quality</label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {IMAGE_QUALITY_OPTIONS.map(q => {
-                            const qActive = settings.image_quality === q.value;
-                            return (
-                              <button
-                                key={q.value}
-                                onClick={() => updateSetting({ image_quality: q.value })}
-                                className={`text-left p-2 rounded-xl border transition-all ${qActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
-                              >
-                                <div className="text-[11px] font-bold">{q.label}</div>
-                                <div className={`text-[10px] mt-0.5 ${qActive ? "text-white/70" : "text-black/55"}`}>{q.desc}</div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Style */}
-                      <div className="mb-2">
-                        <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Style</label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {IMAGE_STYLE_OPTIONS.map(st => {
-                            const stActive = settings.image_style === st.value;
-                            return (
-                              <button
-                                key={st.value}
-                                onClick={() => updateSetting({ image_style: st.value })}
-                                className={`text-left p-2 rounded-xl border transition-all ${stActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
-                              >
-                                <div className="text-[11px] font-bold">{st.label}</div>
-                                <div className={`text-[10px] mt-0.5 ${stActive ? "text-white/70" : "text-black/55"}`}>{st.desc}</div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  {/* Quality */}
+                  <div className="mb-2">
+                    <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Quality</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {IMAGE_QUALITY_OPTIONS.map(q => {
+                        const qActive = settings.image_quality === q.value;
+                        return (
+                          <button
+                            key={q.value}
+                            onClick={() => updateSetting({ image_quality: q.value })}
+                            className={`text-[11px] font-bold p-2 rounded-xl border transition-all ${qActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
+                          >
+                            {q.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
