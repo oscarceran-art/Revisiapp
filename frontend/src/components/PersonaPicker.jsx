@@ -71,7 +71,7 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-opacity"
+          className="btn-gradient-sweep rounded-2xl px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
           data-testid="open-create-persona-modal"
         >
           <Plus size={14} weight="bold" /> Create your own
@@ -170,7 +170,7 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
               <button
                 onClick={handleCreate}
                 disabled={creating || !newName.trim() || !newBrief.trim()}
-                className="flex-1 bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl py-2.5 text-sm font-bold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 active:scale-[0.98] transition-opacity"
+                className="flex-1 btn-gradient-sweep rounded-2xl py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98]"
                 data-testid="confirm-create-persona"
               >
                 <Sparkle size={14} weight="fill" /> {creating ? "Crafting…" : "Create"}

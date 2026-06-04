@@ -90,7 +90,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
             return (
               <div
                 key={s.id} onClick={() => navigate(`/chat/${s.id}`)}
-                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-chat-${s.id}`}
               >
                 <ChatCircle size={13} weight="regular" className="shrink-0 opacity-70" />
@@ -107,7 +107,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
             return (
               <div
                 key={w.id} onClick={() => navigate(`/worksheets/${w.id}`)}
-                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-worksheet-${w.id}`}
               >
                 <FileText size={13} weight="regular" className="shrink-0 opacity-70" />
@@ -129,7 +129,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
             return (
               <div
                 key={n.id} onClick={() => navigate(`/notes/${n.id}`)}
-                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-note-${n.id}`}
               >
                 <Notebook size={13} weight="regular" className="shrink-0 opacity-70" />
@@ -284,7 +284,7 @@ export default function Layout() {
                 to="/exams"
                 data-testid="sidebar-exams-link"
                  className={({ isActive }) =>
-                   `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                   `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
                  }
                >
                  <CalendarBlank size={16} weight="regular" />
@@ -294,7 +294,7 @@ export default function Layout() {
                  to="/subjects"
                  data-testid="sidebar-manage-subjects"
                  className={({ isActive }) =>
-                   `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                   `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
                  }
               >
                 <BookBookmark size={16} weight="regular" />
@@ -307,7 +307,7 @@ export default function Layout() {
                   to="/admin"
                   data-testid="sidebar-admin-link"
                    className={({ isActive }) =>
-                     `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mt-1 ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                     `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mt-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
                    }
                 >
                   <ShieldCheck size={16} weight="regular" />

@@ -166,7 +166,7 @@ export default function WorksheetViewerPage() {
             {isMarked && mr.percentage < 100 && (
               <button
                 onClick={() => navigate(`/worksheets/${id}/cheat-sheet`)}
-                className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:opacity-90 font-bold"
+                className="bg-black text-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:opacity-90 font-bold"
                 data-testid="view-cheat-sheet-btn"
               >
                 <Target size={14} weight="regular" />
@@ -224,7 +224,7 @@ export default function WorksheetViewerPage() {
                   </div>
                   <button
                     onClick={() => navigate(url)}
-                    className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-5 py-2.5 flex items-center gap-2 hover:opacity-90 transition-opacity active:scale-[0.98] text-sm font-bold"
+                    className="bg-black text-white rounded-2xl px-5 py-2.5 flex items-center gap-2 hover:opacity-90 transition-opacity active:scale-[0.98] text-sm font-bold"
                     data-testid="practice-mistakes-btn"
                   >
                     <ArrowsClockwise size={14} weight="bold" /> Practice your mistakes
@@ -326,7 +326,7 @@ export default function WorksheetViewerPage() {
             <button
               onClick={handleMark}
               disabled={marking}
-              className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-8 py-3.5 flex items-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity active:scale-[0.98] font-semibold"
+              className="btn-gradient-sweep rounded-2xl px-8 py-3.5 flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] font-semibold"
               data-testid="mark-worksheet-btn"
             >
               <ListChecks size={18} weight="regular" />

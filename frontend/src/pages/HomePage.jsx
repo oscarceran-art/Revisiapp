@@ -39,7 +39,7 @@ export default function HomePage() {
             <Sparkle size={12} weight="fill" /> welcome back
           </div>
           <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl mt-2 sm:mt-3 leading-[1.05] font-extrabold">
-            What would you like<br className="hidden sm:inline" />{" "}to revise today?
+            What would you like<br className="hidden sm:inline" />{" "}to <span className="gradient-fade">revise</span> today?
           </h1>
         </div>
 
