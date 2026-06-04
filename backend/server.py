@@ -8,7 +8,7 @@ import json
 import re
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Literal, Dict, Any
+from typing import List, Optional, Literal, Dict, Any, Union
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -214,7 +214,7 @@ class WorksheetRequest(BaseModel):
 
 
 class WorksheetQuestion(BaseModel):
-    number: int
+    number: Union[int, str]
     type: str
     question: str
     options: Optional[List[str]] = None
@@ -224,7 +224,7 @@ class WorksheetQuestion(BaseModel):
 
 
 class MarkingFeedback(BaseModel):
-    number: int
+    number: Union[int, str]
     awarded: float
     out_of: int
     feedback: str
@@ -702,6 +702,141 @@ def parse_worksheet_json(text: str) -> dict:
             repair += '"'
         repair += (']' * max(0, opens_arr)) + ('}' * max(0, opens_obj))
         return json.loads(repair)
+
+
+PAST_PAPER_SYSTEM = (
+    "You are an expert exam paper analyst. You MUST return ONLY valid JSON "
+    "matching the requested schema. No prose, no markdown, no code fences."
+)
+
+
+def build_past_paper_prompt(text: str, subject: Optional[dict], difficulty: str, num_questions: Optional[int]) -> str:
+    parts = [
+        "Below is the text of a real past exam paper. Your job is to extract the questions "
+        "as faithfully as possible and reformat them into the standard worksheet JSON schema.",
+        "",
+        "RULES:",
+        "- Preserve each question's wording exactly as written. Do not rephrase or simplify.",
+        "- If the paper has sections (Section A, Section B, etc.), prefix question numbers like A1, A2, B1.",
+        "- Keep the original mark allocation for each question.",
+        "- If a question has multiple parts (1a, 1b, etc.), flatten them into separate numbered questions.",
+        "- Assign a question type ('multiple_choice', 'short_answer', or 'long_answer') based on the answer space.",
+        "- For multiple-choice questions, include the 4 options as an array.",
+        "- Include a model answer based on what the mark scheme would expect.",
+        "- Include a brief explanation of what gains marks.",
+        f"- Difficulty: {difficulty}.",
+    ]
+    if num_questions:
+        parts.append(f"- Extract at most {num_questions} questions (prefer the first {num_questions}).")
+    if subject:
+        parts.append(f"- Subject: {subject['name']}.")
+    parts.append(
+        "",
+        "Return ONLY a JSON object with this exact shape:\n"
+        "{\n"
+        '  "title": "<original paper title or best guess>",\n'
+        '  "instructions": "<2-4 bullet-style exam instructions, or '
+        'copy the rubric from the paper>",\n'
+        '  "duration_minutes": <integer, 0 if unknown>,\n'
+        '  "total_marks": <integer, sum of all extracted question marks>,\n'
+        '  "questions": [\n'
+        '    {\n'
+        '      "number": "1",\n'
+        '      "type": "multiple_choice" | "short_answer" | "long_answer",\n'
+        '      "question": "<the question text exactly as written>",\n'
+        '      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
+        '      "marks": <integer>,\n'
+        '      "answer": "<model answer>",\n'
+        '      "explanation": "<markscheme notes>"\n'
+        '    }\n'
+        '  ]\n'
+        '}\n'
+        "Do not wrap in code fences. Do not include any text outside the JSON.",
+        "",
+        "--- PAST PAPER TEXT ---",
+        text[:15000],
+    )
+    return "\n".join(parts)
+
+
+@api_router.post("/worksheets/from-past-paper", response_model=Worksheet)
+async def worksheet_from_past_paper(
+    file: UploadFile = File(...),
+    subject_id: Optional[str] = Form(None),
+    difficulty: str = Form("hard"),
+    num_questions: Optional[int] = Form(None),
+    authorization: Optional[str] = Header(None),
+):
+    _require_ai_client()
+    user = await auth_module.get_current_user(authorization)
+
+    estimated_tokens = 8000
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
+    raw = await file.read()
+    text = extract_text_from_upload(file.filename or "paper.pdf", raw)
+    if not text or len(text.strip()) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not extract enough text from the file. Scanned/image-only PDFs are not supported."
+        )
+
+    subject = None
+    if subject_id:
+        subject = await get_subject(subject_id, user["id"])
+
+    prompt = build_past_paper_prompt(text, subject, difficulty, num_questions)
+    try:
+        response = await ai_complete(PAST_PAPER_SYSTEM, [{"role": "user", "content": prompt}], 4096)
+        raw_json = ai_text(response)
+        await _charge_tokens(user, response, estimated_tokens)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("AI error")
+        raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
+
+    try:
+        data = parse_worksheet_json(raw_json)
+    except Exception as e:
+        logger.error(f"Past-paper parse failed. Raw output: {raw_json[:1000]}")
+        raise HTTPException(status_code=502, detail=f"Could not parse worksheet JSON: {e}")
+
+    questions = []
+    for i, q in enumerate(data.get('questions', []), start=1):
+        questions.append(WorksheetQuestion(
+            number=str(q.get('number') or i),
+            type=q.get('type', 'short_answer'),
+            question=q.get('question', ''),
+            options=q.get('options') if q.get('options') else None,
+            answer=q.get('answer', ''),
+            explanation=q.get('explanation', '') or '',
+            marks=int(q.get('marks') or 1),
+        ))
+
+    total_marks = data.get('total_marks') or sum(q.marks for q in questions)
+    duration = data.get('duration_minutes') or 0
+    instructions = data.get('instructions') or (
+        "Answer ALL questions in the spaces provided. Read each question carefully."
+    )
+
+    ws = Worksheet(
+        subject_id=subject_id,
+        subject_name=subject['name'] if subject else "",
+        topic="Past paper",
+        difficulty=difficulty,
+        question_type="mixed",
+        num_questions=len(questions),
+        title=data.get('title') or (file.filename or "Past paper").rsplit('.', 1)[0],
+        instructions=instructions,
+        total_marks=int(total_marks),
+        duration_minutes=int(duration),
+        questions=questions,
+    )
+    ws_doc = serialize_doc(ws.model_dump())
+    ws_doc["user_id"] = user["id"]
+    await db.worksheets.insert_one(ws_doc)
+    return ws
 
 
 @api_router.post("/worksheets/generate", response_model=Worksheet)

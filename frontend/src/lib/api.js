@@ -85,6 +85,16 @@ export async function* streamReply(session_id, persona_id) {
 
 // Worksheets
 export const generateWorksheet = (data) => api.post("/worksheets/generate", data).then(r => r.data);
+export const worksheetFromPastPaper = (file, subject_id, difficulty, num_questions) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (subject_id) fd.append("subject_id", subject_id);
+  fd.append("difficulty", difficulty);
+  if (num_questions) fd.append("num_questions", String(num_questions));
+  return api.post("/worksheets/from-past-paper", fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  }).then(r => r.data);
+};
 export const listWorksheets = () => api.get("/worksheets").then(r => r.data);
 export const getWorksheet = (id) => api.get(`/worksheets/${id}`).then(r => r.data);
 export const deleteWorksheet = (id) => api.delete(`/worksheets/${id}`).then(r => r.data);
