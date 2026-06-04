@@ -95,7 +95,7 @@ IMAGE_MODEL_MAP = {
     "chatgpt-2": "dall-e-3",
     "chatgpt-1.5": "dall-e-3",
     "chatgpt-1": "dall-e-3",
-    "chatgpt-1-mini": "dall-e-2",
+    "chatgpt-1-mini": "dall-e-3",
 }
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
@@ -566,7 +566,7 @@ async def update_session_settings(session_id: str, payload: ChatSessionSettingsU
         updates['context_window'] = max(0, int(updates['context_window']))
     if 'image_size' in updates:
         valid = {
-            "chatgpt-1-mini": ["256x256", "512x512", "1024x1024"],
+            "chatgpt-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
             "chatgpt-1": ["1024x1024", "1792x1024", "1024x1792"],
             "chatgpt-1.5": ["1024x1024", "1792x1024", "1024x1792"],
             "chatgpt-2": ["1024x1024", "1792x1024", "1024x1792"],
@@ -2371,7 +2371,7 @@ async def search(q: str = "", authorization: Optional[str] = Header(None)):
 
 # ---------- IMAGE GENERATION ----------
 IMAGE_SIZE_OPTIONS = {
-    "chatgpt-1-mini": ["256x256", "512x512", "1024x1024"],
+    "chatgpt-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
     "chatgpt-1": ["1024x1024", "1792x1024", "1024x1792"],
     "chatgpt-1.5": ["1024x1024", "1792x1024", "1024x1792"],
     "chatgpt-2": ["1024x1024", "1792x1024", "1024x1792"],

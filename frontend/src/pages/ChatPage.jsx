@@ -63,9 +63,9 @@ const IMAGE_SIZE_OPTIONS = {
     { value: "1024x1792", label: "Tall (1024×1792)" },
   ],
   "chatgpt-1-mini": [
-    { value: "256x256", label: "Small (256×256)" },
-    { value: "512x512", label: "Medium (512×512)" },
-    { value: "1024x1024", label: "Large (1024×1024)" },
+    { value: "1024x1024", label: "Square (1024×1024)" },
+    { value: "1792x1024", label: "Wide (1792×1024)" },
+    { value: "1024x1792", label: "Tall (1024×1792)" },
   ],
 };
 
