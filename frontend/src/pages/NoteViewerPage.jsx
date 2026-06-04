@@ -65,7 +65,7 @@ export default function NoteViewerPage() {
               <div key={i} data-testid={`note-section-${i}`}>
                 <div className="flex items-center gap-3 mb-4">
                   <span className="w-8 h-8 rounded-full bg-black text-white text-sm flex items-center justify-center font-bold shrink-0">{i + 1}</span>
-                  <h2 className="text-xl sm:text-2xl font-extrabold">{s.heading}</h2>
+                  <h2 className="text-xl sm:text-2xl font-extrabold">{s.heading.replace(/^\d+\.?\s*/, "")}</h2>
                 </div>
                 <ul className="space-y-3 pl-4 text-[15px] sm:text-base leading-relaxed text-black/85">
                   {s.bullets.map((b, j) => (

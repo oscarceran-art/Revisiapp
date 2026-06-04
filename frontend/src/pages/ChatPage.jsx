@@ -54,7 +54,6 @@ export default function ChatPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [busyAction, setBusyAction] = useState(null); // 'quiz' | 'summary'
   const [listening, setListening] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   useEffect(() => {
     if (activeSession?.settings) {
