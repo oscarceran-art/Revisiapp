@@ -73,30 +73,7 @@ AI_MODELS = {
 }
 if DEFAULT_AI_MODEL not in AI_MODELS:
     DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
-IMAGE_MODELS = {
-    "gpt-image-2": {
-        "label": "GPT Image 2",
-        "description": "Best quality — readable text, complex prompts.",
-    },
-    "gpt-image-1.5": {
-        "label": "GPT Image 1.5",
-        "description": "Previous-gen with good quality.",
-    },
-    "gpt-image-1": {
-        "label": "GPT Image 1",
-        "description": "Standard quality, good for most tasks.",
-    },
-    "gpt-image-1-mini": {
-        "label": "GPT Image 1 Mini",
-        "description": "Fast & cheap, rapid drafts.",
-    },
-}
-IMAGE_MODEL_MAP = {
-    "gpt-image-2": "gpt-image-2",
-    "gpt-image-1.5": "gpt-image-1.5",
-    "gpt-image-1": "gpt-image-1",
-    "gpt-image-1-mini": "gpt-image-1-mini",
-}
+
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 
@@ -174,11 +151,6 @@ class ChatSessionSettings(BaseModel):
     ai_mode: Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"] = "normal"
     strictness: int = 5
     context_window: int = 0
-    image_model: Literal["off", "gpt-image-1-mini", "gpt-image-1", "gpt-image-1.5", "gpt-image-2"] = "off"
-    image_size: str = "1024x1024"
-    image_quality: Literal["low", "medium", "high"] = "medium"
-    image_style: Optional[Literal["vivid", "natural"]] = None
-
 
 class ChatSession(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -206,19 +178,6 @@ class ChatSessionSettingsUpdate(BaseModel):
     ai_mode: Optional[Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"]] = None
     strictness: Optional[int] = None
     context_window: Optional[int] = None
-    image_model: Optional[Literal["off", "gpt-image-1-mini", "gpt-image-1", "gpt-image-1.5", "gpt-image-2"]] = None
-    image_size: Optional[str] = None
-    image_quality: Optional[Literal["low", "medium", "high"]] = None
-    image_style: Optional[Literal["vivid", "natural"]] = None
-
-
-class ImageGenerationRequest(BaseModel):
-    prompt: str
-    model: Literal["gpt-image-1-mini", "gpt-image-1", "gpt-image-1.5", "gpt-image-2"] = "gpt-image-1"
-    n: int = 1
-    size: str = "1024x1024"
-    quality: Literal["low", "medium", "high"] = "medium"
-
 
 class ChatMessage(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -386,7 +345,7 @@ def extract_text_from_upload(filename: str, raw: bytes) -> str:
 # ---------- BASIC ----------
 @api_router.get("/")
 async def root():
-    return {"message": "Revisia API", "model": DEFAULT_AI_MODEL, "models": AI_MODELS, "image_models": IMAGE_MODELS}
+    return {"message": "Revisia API", "model": DEFAULT_AI_MODEL, "models": AI_MODELS}
 
 
 @api_router.get("/health")
@@ -563,16 +522,6 @@ async def update_session_settings(session_id: str, payload: ChatSessionSettingsU
         updates['strictness'] = max(1, min(10, int(updates['strictness'])))
     if 'context_window' in updates:
         updates['context_window'] = max(0, int(updates['context_window']))
-    if 'image_size' in updates:
-        valid = {
-            "gpt-image-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
-            "gpt-image-1": ["1024x1024", "1792x1024", "1024x1792"],
-            "gpt-image-1.5": ["1024x1024", "1792x1024", "1024x1792"],
-            "gpt-image-2": ["1024x1024", "1792x1024", "1024x1792"],
-        }
-        model = updates.get('image_model') or current.get('image_model', 'off')
-        if updates['image_size'] not in valid.get(model, []):
-            updates['image_size'] = "1024x1024"
     merged = {**current, **updates}
     merged_model = ChatSessionSettings(**merged)
     await db.chat_sessions.update_one(
@@ -957,91 +906,6 @@ async def delete_worksheet(worksheet_id: str, authorization: Optional[str] = Hea
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Worksheet not found")
     return {"ok": True}
-
-
-@api_router.get("/review/queue")
-async def review_queue(authorization: Optional[str] = Header(None)):
-    user = await auth_module.get_current_user(authorization)
-    docs = await db.worksheets.find(
-        {"marking_result": {"$ne": None}, "user_id": user["id"]}, {"_id": 0}
-    ).sort("created_at", -1).to_list(200)
-    now = datetime.now(timezone.utc)
-    items = []
-    intervals_days = [1, 3, 7, 14, 30]
-    for w in docs:
-        mr = w.get('marking_result') or {}
-        per_q = mr.get('per_question', [])
-        marked_at = mr.get('marked_at')
-        if isinstance(marked_at, str):
-            try:
-                marked_at = datetime.fromisoformat(marked_at)
-            except Exception:
-                marked_at = now
-        elif not marked_at:
-            marked_at = now
-        review_state = w.get('review_state', {})
-        for p in per_q:
-            if p['awarded'] >= p['out_of']:
-                continue
-            q = next((x for x in w['questions'] if x['number'] == p['number']), None)
-            if not q:
-                continue
-            key = str(p['number'])
-            state = review_state.get(key, {})
-            level = state.get('level', 0)
-            next_due = state.get('next_due')
-            if next_due:
-                try:
-                    next_due_dt = datetime.fromisoformat(next_due)
-                except Exception:
-                    next_due_dt = marked_at
-            else:
-                next_due_dt = marked_at + __import__('datetime').timedelta(days=intervals_days[0])
-            items.append({
-                "worksheet_id": w['id'],
-                "worksheet_title": w['title'],
-                "subject_name": w.get('subject_name', ''),
-                "question_number": p['number'],
-                "question": q['question'],
-                "answer": q['answer'],
-                "marks_lost": p['out_of'] - p['awarded'],
-                "level": level,
-                "next_due": next_due_dt.isoformat() if hasattr(next_due_dt, 'isoformat') else str(next_due_dt),
-                "is_due": (next_due_dt <= now) if hasattr(next_due_dt, '__le__') else True,
-            })
-    items.sort(key=lambda x: (not x['is_due'], x['next_due']))
-    return {"items": items, "due_count": sum(1 for i in items if i['is_due'])}
-
-
-class ReviewMarkRequest(BaseModel):
-    worksheet_id: str
-    question_number: int
-    remembered: bool
-
-
-@api_router.post("/review/mark")
-async def review_mark(payload: ReviewMarkRequest, authorization: Optional[str] = Header(None)):
-    intervals_days = [1, 3, 7, 14, 30, 60]
-    user = await auth_module.get_current_user(authorization)
-    doc = await db.worksheets.find_one({"id": payload.worksheet_id, "user_id": user["id"]}, {"_id": 0})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Worksheet not found")
-    review_state = doc.get('review_state', {})
-    key = str(payload.question_number)
-    state = review_state.get(key, {"level": 0})
-    if payload.remembered:
-        state['level'] = min(state.get('level', 0) + 1, len(intervals_days) - 1)
-    else:
-        state['level'] = 0
-    from datetime import timedelta as _td
-    next_due = datetime.now(timezone.utc) + _td(days=intervals_days[state['level']])
-    state['next_due'] = next_due.isoformat()
-    review_state[key] = state
-    await db.worksheets.update_one(
-        {"id": payload.worksheet_id},
-        {"$set": {"review_state": review_state}}
-    )
-    return {"ok": True, "next_due": state['next_due'], "level": state['level']}
 
 
 # ---------- PERSONAS ----------
@@ -2366,43 +2230,6 @@ async def search(q: str = "", authorization: Optional[str] = Header(None)):
             for e in exams if hit(e.get('name')) or hit(e.get('notes'))
         ][:20],
     }
-
-
-# ---------- IMAGE GENERATION ----------
-IMAGE_SIZE_OPTIONS = {
-    "gpt-image-1-mini": ["1024x1024", "1792x1024", "1024x1792"],
-    "gpt-image-1": ["1024x1024", "1792x1024", "1024x1792"],
-    "gpt-image-1.5": ["1024x1024", "1792x1024", "1024x1792"],
-    "gpt-image-2": ["1024x1024", "1792x1024", "1024x1792"],
-}
-
-
-@api_router.post("/images/generate")
-async def generate_image(req: ImageGenerationRequest, authorization: Optional[str] = Header(None)):
-    _require_ai_client()
-    user = await auth_module.get_current_user(authorization)
-
-    estimated_tokens = 2000
-    await auth_module.check_and_charge_tokens(user, estimated_tokens)
-
-    api_model = IMAGE_MODEL_MAP.get(req.model)
-    if not api_model:
-        raise HTTPException(status_code=400, detail=f"Unknown image model: {req.model}")
-
-    valid_sizes = IMAGE_SIZE_OPTIONS.get(req.model, [])
-    if req.size not in valid_sizes:
-        raise HTTPException(status_code=400, detail=f"Size {req.size} not valid for {req.model}. Choose from: {', '.join(valid_sizes)}")
-
-    kwargs = dict(model=api_model, prompt=req.prompt, n=min(max(1, req.n), 4), size=req.size, quality=req.quality)
-
-    try:
-        resp = await openai_client.images.generate(**kwargs)
-        b64 = resp.data[0].b64_json
-        data_url = f"data:image/png;base64,{b64}"
-        return {"url": data_url, "revised_prompt": resp.data[0].revised_prompt if hasattr(resp.data[0], "revised_prompt") else None}
-    except Exception as e:
-        logger.exception("Image generation failed")
-        raise HTTPException(status_code=502, detail=f"Image generation error: {str(e)}")
 
 
 # ---------- MOUNT ROUTER + MIDDLEWARE ----------

@@ -199,7 +199,7 @@ export default function Layout() {
       </button>
 
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen bg-white border-r border-black/10 flex flex-col transition-all duration-200 ${sidebarWidth} ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        className={`fixed top-0 left-0 z-40 h-screen bg-white/95 backdrop-blur-sm border-r border-black/10 flex flex-col transition-all duration-200 ${sidebarWidth} ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 shadow-[2px_0_20px_rgba(0,0,0,0.03)]`}
         data-testid="sidebar"
       >
         <div className={`flex items-center justify-between pt-5 pb-3 ${collapsed ? "px-3" : "px-5"}`}>

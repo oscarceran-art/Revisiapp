@@ -49,22 +49,31 @@ export default function NoteViewerPage() {
           </button>
         </div>
 
-        <div className="bg-white border border-black/10 rounded-3xl p-6 sm:p-10">
+        <div className="bg-white border border-black/10 rounded-3xl p-6 sm:p-10 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-black/45">
             <BookOpen size={12} weight="fill" /> {note.subject_name || "Notes"}
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl mt-2 font-extrabold leading-tight">{note.title}</h1>
-          {note.summary && <p className="text-black/65 italic mt-4 text-base sm:text-lg leading-relaxed">{note.summary}</p>}
+          {note.summary && (
+            <div className="mt-5 border-l-2 border-black/15 pl-5">
+              <p className="text-black/65 italic text-base sm:text-lg leading-relaxed">{note.summary}</p>
+            </div>
+          )}
 
-          <div className="mt-8 sm:mt-10 space-y-8">
+          <div className="mt-8 sm:mt-10 space-y-10">
             {note.sections.map((s, i) => (
               <div key={i} data-testid={`note-section-${i}`}>
-                <h2 className="text-xl sm:text-2xl font-extrabold mb-3 flex items-baseline gap-3">
-                  <span className="text-black/30 text-base tabular-nums">{i + 1}.</span>
-                  {s.heading}
-                </h2>
-                <ul className="space-y-2.5 list-disc pl-6 text-[15px] sm:text-base leading-relaxed text-black/85">
-                  {s.bullets.map((b, j) => <li key={j}>{b}</li>)}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-8 h-8 rounded-full bg-black text-white text-sm flex items-center justify-center font-bold shrink-0">{i + 1}</span>
+                  <h2 className="text-xl sm:text-2xl font-extrabold">{s.heading}</h2>
+                </div>
+                <ul className="space-y-3 pl-4 text-[15px] sm:text-base leading-relaxed text-black/85">
+                  {s.bullets.map((b, j) => (
+                    <li key={j} className="flex gap-3">
+                      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-black/30 shrink-0" />
+                      <span>{b}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             ))}
@@ -73,13 +82,16 @@ export default function NoteViewerPage() {
           {note.key_terms && note.key_terms.length > 0 && (
             <div className="mt-10 pt-8 border-t border-black/10">
               <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-black/45 mb-4">
-                <Sparkle size={11} weight="fill" /> Key terms
+                <Sparkle size={11} weight="fill" /> Key terms — {note.key_terms.length}
               </div>
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="flex flex-wrap gap-2">
                 {note.key_terms.map((t, i) => (
-                  <div key={i} className="bg-[#FAF8F5] rounded-2xl p-4">
-                    <div className="font-extrabold text-sm">{t.term}</div>
-                    <div className="text-sm text-black/65 mt-1 leading-relaxed">{t.definition}</div>
+                  <div key={i} className="group relative">
+                    <span className="inline-block bg-black text-white text-[13px] font-bold px-3 py-1.5 rounded-full cursor-default">{t.term}</span>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-black text-white text-[13px] p-3 rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none z-10 shadow-lg">
+                      {t.definition}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-black" />
+                    </div>
                   </div>
                 ))}
               </div>

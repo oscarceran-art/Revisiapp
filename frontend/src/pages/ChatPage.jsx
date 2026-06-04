@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  PaperPlaneTilt, ChatCircleText, Gear, Sun, NotePencil, X, Brain, Microphone, Cpu, ImageSquare
+  PaperPlaneTilt, ChatCircleText, Gear, Sun, NotePencil, X, Brain, Microphone, Cpu
 } from "@phosphor-icons/react";
 import {
   getMessages, sendUserMessage, streamReply,
-  updateSessionSettings, generateMorningQuiz, summariseChat, generateImage,
+  updateSessionSettings, generateMorningQuiz, summariseChat,
 } from "@/lib/api";
 import { useSidebarData } from "@/context/SidebarContext";
 import Markdown from "@/components/Markdown";
@@ -38,44 +38,7 @@ const CONTEXT_OPTIONS = [
   { value: 0, label: "Whole chat", desc: "Full context (costliest)" },
 ];
 
-const IMAGE_MODEL_OPTIONS = [
-  { id: "off", label: "Off", desc: "No image generation" },
-  { id: "gpt-image-1-mini", label: "GPT Image 1 Mini", desc: "Fast & cheap — rapid drafts, lower resolution." },
-  { id: "gpt-image-1", label: "GPT Image 1", desc: "Standard generation, good for most tasks." },
-  { id: "gpt-image-1.5", label: "GPT Image 1.5", desc: "Previous-gen with better quality." },
-  { id: "gpt-image-2", label: "GPT Image 2", desc: "Best quality, readable text, complex prompts." },
-];
-
-const IMAGE_SIZE_OPTIONS = {
-  "gpt-image-2": [
-    { value: "1024x1024", label: "Square (1024×1024)" },
-    { value: "1792x1024", label: "Wide (1792×1024)" },
-    { value: "1024x1792", label: "Tall (1024×1792)" },
-  ],
-  "gpt-image-1.5": [
-    { value: "1024x1024", label: "Square (1024×1024)" },
-    { value: "1792x1024", label: "Wide (1792×1024)" },
-    { value: "1024x1792", label: "Tall (1024×1792)" },
-  ],
-  "gpt-image-1": [
-    { value: "1024x1024", label: "Square (1024×1024)" },
-    { value: "1792x1024", label: "Wide (1792×1024)" },
-    { value: "1024x1792", label: "Tall (1024×1792)" },
-  ],
-  "gpt-image-1-mini": [
-    { value: "1024x1024", label: "Square (1024×1024)" },
-    { value: "1792x1024", label: "Wide (1792×1024)" },
-    { value: "1024x1792", label: "Tall (1024×1792)" },
-  ],
-};
-
-const IMAGE_QUALITY_OPTIONS = [
-  { value: "low", label: "Low", desc: "Fastest, cheapest" },
-  { value: "medium", label: "Medium", desc: "Balanced speed & quality" },
-  { value: "high", label: "High", desc: "Best quality, slower" },
-];
-
-const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0, image_model: "off", image_size: "1024x1024", image_quality: "medium" };
+const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0 };
 
 export default function ChatPage() {
   const { sessionId } = useParams();
@@ -91,22 +54,7 @@ export default function ChatPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [busyAction, setBusyAction] = useState(null); // 'quiz' | 'summary'
   const [listening, setListening] = useState(false);
-  const [generatingImage, setGeneratingImage] = useState(false);
-  const recognitionRef = useRef(null);
-  const baseInputRef = useRef("");
-  const scrollRef = useRef(null);
-  const textareaRef = useRef(null);
-  const streamBufferRef = useRef("");
-  const fullTextRef = useRef("");
-  const rafRef = useRef(null);
-
-  const activeSession = sessions.find(s => s.id === sessionId);
-  const activeSubject = subjects.find(s => s.id === activeSession?.subject_id);
-  const sessionPersonas = (activeSession?.personas || []).map(id => findPersona(personas, id)).filter(Boolean);
-  const isGroup = activeSession?.mode === "group";
-  const subjectLabel = activeSubject?.name || "General";
-
-  // Local settings state, hydrated from session
+  const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   useEffect(() => {
     if (activeSession?.settings) {
@@ -293,30 +241,6 @@ export default function ChatPage() {
   };
 
   useEffect(() => () => { try { recognitionRef.current?.stop(); } catch (_) { /* ignore */ } }, []);
-
-  const handleGenerateImage = async () => {
-    if (!input.trim() || !sessionId || generatingImage) return;
-    const prompt = input;
-    setInput("");
-    setGeneratingImage(true);
-    const tempId = `tmp-img-${Date.now()}`;
-    setMessages(prev => [...prev, { id: tempId, role: "user", content: `🎨 ${prompt}` }]);
-    try {
-      await sendUserMessage(sessionId, prompt);
-      const result = await generateImage({
-        prompt, model: settings.image_model, size: settings.image_size,
-        quality: settings.image_quality,
-      });
-      const imgMsg = { id: `img-${Date.now()}`, role: "assistant", content: `![${prompt}](${result.url})` };
-      setMessages(prev => [...prev, imgMsg]);
-      toast.success("Image generated");
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Image generation failed");
-      setMessages(prev => prev.filter(m => m.id === tempId));
-    } finally {
-      setGeneratingImage(false);
-    }
-  };
 
   const handleSummarise = async () => {    if (busyAction) return;
     if (messages.length === 0) { toast.error("Chat first, then summarise."); return; }
@@ -525,19 +449,6 @@ export default function ChatPage() {
                 <Microphone size={16} weight={listening ? "fill" : "regular"} />
               </button>
             </div>
-            {settings.image_model !== "off" && (
-              <button
-                type="button"
-                onClick={handleGenerateImage}
-                disabled={generatingImage || !input.trim() || sending}
-                className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center border border-black/15 bg-white hover:bg-black/[0.04] text-black/70 transition-colors disabled:opacity-30"
-                data-testid="generate-image-btn"
-                aria-label="Generate image"
-                title={`Generate image (${settings.image_model})`}
-              >
-                <ImageSquare size={18} weight={generatingImage ? "fill" : "regular"} />
-              </button>
-            )}
             <button
               onClick={handleSend}
               disabled={sending || !input.trim()}
@@ -672,69 +583,6 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Image Generation */}
-            <div className="mb-2">
-              <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2 flex items-center gap-1.5">
-                <ImageSquare size={11} weight="fill" /> Image generation
-              </label>
-              <div className="grid grid-cols-1 gap-2 mb-4">
-                {IMAGE_MODEL_OPTIONS.map(m => {
-                  const active = settings.image_model === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => updateSetting({ image_model: m.id })}
-                      className={`text-left p-3 rounded-2xl border transition-all ${active ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
-                    >
-                      <div className="text-sm font-bold">{m.label}</div>
-                      <div className={`text-[11px] mt-0.5 leading-snug ${active ? "text-white/70" : "text-black/55"}`}>{m.desc}</div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {settings.image_model !== "off" && (
-                <>
-                  {/* Image size */}
-                  <div className="mb-3">
-                    <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Size</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(IMAGE_SIZE_OPTIONS[settings.image_model] || []).map(s => {
-                        const szActive = settings.image_size === s.value;
-                        return (
-                          <button
-                            key={s.value}
-                            onClick={() => updateSetting({ image_size: s.value })}
-                            className={`text-[11px] font-bold p-2 rounded-xl border transition-all ${szActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
-                          >
-                            {s.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Quality */}
-                  <div className="mb-2">
-                    <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Quality</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {IMAGE_QUALITY_OPTIONS.map(q => {
-                        const qActive = settings.image_quality === q.value;
-                        return (
-                          <button
-                            key={q.value}
-                            onClick={() => updateSetting({ image_quality: q.value })}
-                            className={`text-[11px] font-bold p-2 rounded-xl border transition-all ${qActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
-                          >
-                            {q.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         </div>
       )}

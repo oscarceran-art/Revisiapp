@@ -27,7 +27,7 @@ function ConfidenceRow({ ws, onSaved }) {
     <div className="mt-5 pt-5 border-t border-black/10 flex items-center justify-between flex-wrap gap-3" data-testid="confidence-row">
       <div>
         <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">How confident are you on this topic now?</div>
-        <div className="text-[12px] text-black/55 mt-1">Feeds into your revision plan & spaced repetition.</div>
+        <div className="text-[12px] text-black/55 mt-1">Helps track your progress on this topic.</div>
       </div>
       <div className="flex items-center gap-1.5">
         {[1, 2, 3, 4, 5].map(n => (
@@ -178,13 +178,26 @@ export default function WorksheetViewerPage() {
         {/* Marking summary banner */}
         {isMarked && (
           <div className="mb-6 bg-white border border-black/10 rounded-3xl p-6 animate-fade-up" data-testid="marking-summary">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Your score</div>
-                <div className="display text-5xl mt-1">
-                  {mr.total_awarded}<span className="text-black/40 text-3xl">/{mr.total_out_of}</span>
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-5">
+                <div className="text-center">
+                  <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 mb-1">Score</div>
+                  <div className="display text-5xl leading-none">
+                    {mr.total_awarded}<span className="text-black/30 text-3xl">/{mr.total_out_of}</span>
+                  </div>
                 </div>
-                <div className="text-sm text-black/55 mt-1">{mr.percentage}%</div>
+                <div className="w-px h-16 bg-black/10" />
+                <div>
+                  <div className={`text-2xl font-extrabold ${mr.percentage >= 80 ? "text-green-600" : mr.percentage >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                    {Math.round(mr.percentage)}%
+                  </div>
+                  <div className="w-32 h-1.5 bg-black/8 rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${mr.percentage >= 80 ? "bg-green-500" : mr.percentage >= 50 ? "bg-amber-500" : "bg-red-500"}`}
+                      style={{ width: `${Math.min(100, mr.percentage)}%` }}
+                    />
+                  </div>
+                </div>
               </div>
               <div className="flex-1 min-w-[200px] max-w-md">
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Feedback</div>
