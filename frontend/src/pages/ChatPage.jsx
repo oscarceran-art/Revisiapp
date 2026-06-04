@@ -474,7 +474,7 @@ export default function ChatPage() {
             <button
               onClick={handleSend}
               disabled={sending || !input.trim()}
-              className="shrink-0 w-12 h-12 bg-black text-white rounded-full flex items-center justify-center disabled:opacity-30 hover:bg-black/85 transition-colors active:scale-[0.95]"
+              className="shrink-0 w-12 h-12 bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-full flex items-center justify-center disabled:opacity-30 hover:opacity-90 transition-opacity active:scale-[0.95]"
               data-testid="chat-send-btn"
               aria-label="Send"
             >

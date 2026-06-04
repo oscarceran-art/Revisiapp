@@ -65,7 +65,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
           <div className="flex gap-1.5 px-1 pb-1.5">
             <button
               onClick={() => navigate(`/chat/new?subject=${groupId}`)}
-              className="flex-1 text-[12px] flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-black text-white hover:bg-black/85 transition-colors"
+              className="flex-1 text-[12px] flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-gradient-to-r from-pink-400 to-blue-500 text-white hover:opacity-90 transition-opacity"
             >
               <Plus size={12} weight="bold" /> Chat
             </button>
@@ -205,7 +205,7 @@ export default function Layout() {
         <div className={`flex items-center justify-between pt-5 pb-3 ${collapsed ? "px-3" : "px-5"}`}>
           {!collapsed && (
             <NavLink to="/" className="block hover:opacity-80 transition-opacity flex-1 min-w-0" data-testid="sidebar-brand">
-              <div className="text-2xl font-extrabold text-black truncate">Revision AI</div>
+              <div className="text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-blue-500 bg-clip-text text-transparent truncate">Revision AI</div>
             </NavLink>
           )}
           <button
@@ -235,7 +235,7 @@ export default function Layout() {
                   key={it.to}
                   onClick={() => navigate(it.to)}
                   title={it.label}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${active ? "bg-black text-white" : "hover:bg-black/[0.05] text-black/70"}`}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${active ? "bg-gradient-to-br from-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.05] text-black/70"}`}
                   data-testid={`collapsed-nav-${it.label.toLowerCase().replace(/\s/g, '-')}`}
                 >
                   <Icon size={18} weight="regular" />
