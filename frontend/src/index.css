@@ -23,22 +23,43 @@ body {
     font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 14;
 }
 
-/* Gradient fade for keyword highlighting — animated sweep: starts black, reveals gradient left→right, then disappears */
-.gradient-fade {
-    background: linear-gradient(to right, #f472b6, #3b82f6) no-repeat left,
-                #000;
+/* Gradient sweep — smooth transparent-edge fade reveals pink→blue gradient */
+.gradient-fade,
+.gradient-fade-out {
+    background:
+        linear-gradient(to right,
+            transparent 0%, transparent 20%,
+            #f472b6 25%, #3b82f6 75%,
+            transparent 80%, transparent 100%
+        ) no-repeat,
+        #000;
+    background-size: 300% 100%, 100% 100%;
+    background-position: 100% 0, 0 0;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     display: inline;
-    animation: sweep 2.5s ease-in-out forwards;
 }
 
-@keyframes sweep {
-    0%   { background-size: 0% 100%, 100% 100%; }
-    25%  { background-size: 100% 100%, 100% 100%; }
-    50%  { background-size: 100% 100%, 100% 100%; }
-    100% { background-size: 0% 100%, 100% 100%; }
+/* Version 1: reveals gradient and stays */
+.gradient-fade {
+    animation: sweep-stay 2s ease-out forwards;
+}
+
+@keyframes sweep-stay {
+    0%   { background-position: 100% 0, 0 0; }
+    100% { background-position: 50% 0, 0 0; }
+}
+
+/* Version 2: reveals gradient then fades back out left→right */
+.gradient-fade-out {
+    animation: sweep-fade 3s ease-in-out forwards;
+}
+
+@keyframes sweep-fade {
+    0%   { background-position: 100% 0, 0 0; }
+    50%  { background-position: 50% 0, 0 0; }
+    100% { background-position: 0% 0, 0 0; }
 }
 
 /* Button: black → gradient → black sweep */
