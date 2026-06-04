@@ -43,25 +43,25 @@ export default function NotesGeneratorPage() {
   return (
     <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="notes-generator-page">
       <div className="max-w-2xl mx-auto">
-        <button onClick={() => navigate(-1)} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-6">
+        <button onClick={() => navigate(-1)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Back
         </button>
 
         <div className="mb-8">
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-black/45">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
             <Notebook size={12} weight="fill" /> New notes
           </div>
           <h1 className="text-2xl sm:text-4xl md:text-5xl mt-2 font-extrabold">Generate study notes</h1>
-          <p className="text-black/55 mt-2 sm:mt-3 text-sm sm:text-base">Crisp, structured notes you can read, revise from, and turn into a worksheet later.</p>
+          <p className="text-muted-foreground mt-2 sm:mt-3 text-sm sm:text-base">Crisp, structured notes you can read, revise from, and turn into a worksheet later.</p>
         </div>
 
-        <div className="bg-white border border-black/10 rounded-3xl p-5 sm:p-7 space-y-6">
+        <div className="glass-card rounded-3xl p-5 sm:p-7 space-y-6">
           <div>
-            <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Subject</label>
+            <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Subject</label>
             <select
               value={form.subject_id}
               onChange={e => setForm(v => ({ ...v, subject_id: e.target.value }))}
-              className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black"
+              className="w-full border border-border rounded-2xl px-4 py-3 bg-background focus:outline-none focus:border-foreground"
               data-testid="notes-subject-select"
             >
               <option value="">General (no subject)</option>
@@ -70,28 +70,28 @@ export default function NotesGeneratorPage() {
           </div>
 
           <div>
-            <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Topic</label>
+            <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Topic</label>
             <input
               value={form.topic}
               onChange={e => setForm(v => ({ ...v, topic: e.target.value }))}
               placeholder="e.g. Photosynthesis in C4 plants"
-              className="w-full border border-black/15 rounded-2xl px-4 py-3 focus:outline-none focus:border-black"
+              className="w-full border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-foreground"
               data-testid="notes-topic-input"
             />
           </div>
 
           <div>
-            <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Depth</label>
+            <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Depth</label>
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               {DEPTHS.map(d => (
                 <button
                   key={d.id}
                   onClick={() => setForm(v => ({ ...v, depth: d.id }))}
-                  className={`text-left p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-colors ${form.depth === d.id ? "bg-black text-white border-black" : "bg-white border-black/15 hover:bg-black/[0.04]"}`}
+                  className={`text-left p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-colors ${form.depth === d.id ? "bg-foreground text-primary-foreground border-foreground" : "bg-background border-border hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"}`}
                   data-testid={`depth-${d.id}`}
                 >
                   <div className="text-xs sm:text-sm font-bold">{d.label}</div>
-                  <div className={`text-[10px] sm:text-[11px] mt-0.5 ${form.depth === d.id ? "text-white/70" : "text-black/50"}`}>{d.desc}</div>
+                  <div className={`text-[10px] sm:text-[11px] mt-0.5 ${form.depth === d.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{d.desc}</div>
                 </button>
               ))}
             </div>

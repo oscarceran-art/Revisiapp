@@ -24,10 +24,10 @@ function ConfidenceRow({ ws, onSaved }) {
     }
   };
   return (
-    <div className="mt-5 pt-5 border-t border-black/10 flex items-center justify-between flex-wrap gap-3" data-testid="confidence-row">
+    <div className="mt-5 pt-5 border-t border-border flex items-center justify-between flex-wrap gap-3" data-testid="confidence-row">
       <div>
-        <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">How confident are you on this topic now?</div>
-        <div className="text-[12px] text-black/55 mt-1">Helps track your progress on this topic.</div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">How confident are you on this topic now?</div>
+        <div className="text-[12px] text-muted-foreground mt-1">Helps track your progress on this topic.</div>
       </div>
       <div className="flex items-center gap-1.5">
         {[1, 2, 3, 4, 5].map(n => (
@@ -35,7 +35,7 @@ function ConfidenceRow({ ws, onSaved }) {
             key={n}
             onClick={() => set(n)}
             disabled={saving}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${n <= current ? "bg-black text-white" : "bg-black/[0.05] text-black/35 hover:bg-black/10"}`}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${n <= current ? "bg-foreground text-primary-foreground" : "bg-black/[0.05] dark:bg-white/[0.1] text-muted-foreground hover:bg-black/10 dark:hover:bg-white/20"}`}
             data-testid={`confidence-${n}`}
             aria-label={`${n} out of 5`}
           >
@@ -60,7 +60,7 @@ function StudentAnswerField({ q, value, onChange, disabled }) {
               key={i}
               type="button"
               onClick={() => !disabled && onChange(letter)}
-              className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-2xl border transition-colors ${selected ? "bg-black text-white border-black" : "bg-white border-black/15 hover:bg-black/[0.04]"} disabled:opacity-70`}
+              className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-2xl border transition-colors ${selected ? "bg-foreground text-primary-foreground border-foreground" : "bg-background border-border hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"} disabled:opacity-70`}
               disabled={disabled}
               data-testid={`q-${q.number}-opt-${letter}`}
             >
@@ -80,7 +80,7 @@ function StudentAnswerField({ q, value, onChange, disabled }) {
       disabled={disabled}
       rows={rows}
       placeholder="Your answer…"
-      className="mt-3 w-full border-b-2 border-dotted border-black/25 bg-transparent focus:border-black focus:outline-none px-1 py-2 text-[15px] resize-none disabled:opacity-70"
+      className="mt-3 w-full border-b-2 border-dotted border-foreground/25 bg-transparent focus:border-foreground focus:outline-none px-1 py-2 text-[15px] resize-none disabled:opacity-70"
       data-testid={`q-${q.number}-answer`}
     />
   );
@@ -131,7 +131,7 @@ export default function WorksheetViewerPage() {
   };
 
   if (loading || !ws) {
-    return <div className="min-h-screen flex items-center justify-center text-black/40">Loading…</div>;
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   }
 
   const mr = ws.marking_result;
@@ -141,13 +141,13 @@ export default function WorksheetViewerPage() {
     <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-viewer">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6 no-print">
-          <button onClick={() => navigate("/")} className="text-sm text-black/50 hover:text-black flex items-center gap-1.5">
+          <button onClick={() => navigate("/")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5">
             <ArrowLeft size={14} weight="bold" /> Home
           </button>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
             <button
               onClick={() => setShowAnswers(v => !v)}
-              className="border border-black/15 rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:bg-black/[0.04]"
+              className="border border-border rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
               data-testid="toggle-answers-btn"
             >
               {showAnswers ? <EyeSlash size={14} weight="regular" /> : <Eye size={14} weight="regular" />}
@@ -156,7 +156,7 @@ export default function WorksheetViewerPage() {
             </button>
             <button
               onClick={() => navigate(`/worksheets/${id}/markscheme`)}
-              className="border border-black/15 rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:bg-black/[0.04]"
+              className="border border-border rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
               data-testid="view-markscheme-btn"
             >
               <FileText size={14} weight="regular" />
@@ -174,7 +174,7 @@ export default function WorksheetViewerPage() {
                 <span className="sm:hidden">Cheat</span>
               </button>
             )}
-            <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-1.5 sm:p-2 rounded-full" data-testid="delete-worksheet-btn" aria-label="Delete">
+            <button onClick={handleDelete} className="text-muted-foreground hover:text-red-600 p-1.5 sm:p-2 rounded-full" data-testid="delete-worksheet-btn" aria-label="Delete">
               <Trash size={16} weight="regular" />
             </button>
           </div>
@@ -182,21 +182,21 @@ export default function WorksheetViewerPage() {
 
         {/* Marking summary banner */}
         {isMarked && (
-          <div className="mb-6 bg-white border border-black/10 rounded-3xl p-5 sm:p-6 animate-fade-up" data-testid="marking-summary">
+          <div className="mb-6 glass-card rounded-3xl p-5 sm:p-6 animate-fade-up" data-testid="marking-summary">
             <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
               <div className="flex items-center gap-4 sm:gap-5 w-full sm:w-auto">
                 <div className="text-center">
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 mb-1">Score</div>
+                  <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-1">Score</div>
                   <div className="display text-4xl sm:text-5xl leading-none">
-                    {mr.total_awarded}<span className="text-black/30 text-2xl sm:text-3xl">/{mr.total_out_of}</span>
+                    {mr.total_awarded}<span className="text-foreground/30 text-2xl sm:text-3xl">/{mr.total_out_of}</span>
                   </div>
                 </div>
-                <div className="w-px h-14 sm:h-16 bg-black/10 shrink-0" />
+                <div className="w-px h-14 sm:h-16 bg-border shrink-0" />
                 <div>
                   <div className={`text-xl sm:text-2xl font-extrabold ${mr.percentage >= 80 ? "text-green-600" : mr.percentage >= 50 ? "text-amber-600" : "text-red-600"}`}>
                     {Math.round(mr.percentage)}%
                   </div>
-                  <div className="w-24 sm:w-32 h-1.5 bg-black/8 rounded-full mt-1.5 overflow-hidden">
+                  <div className="w-24 sm:w-32 h-1.5 bg-black/8 dark:bg-white/8 rounded-full mt-1.5 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${mr.percentage >= 80 ? "bg-green-500" : mr.percentage >= 50 ? "bg-amber-500" : "bg-red-500"}`}
                       style={{ width: `${Math.min(100, mr.percentage)}%` }}
@@ -205,8 +205,8 @@ export default function WorksheetViewerPage() {
                 </div>
               </div>
               <div className="flex-1 w-full sm:min-w-[200px] sm:max-w-md">
-                <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Feedback</div>
-                <p className="text-sm text-black/75 mt-1.5 sm:mt-2 leading-relaxed italic">{mr.overall_feedback}</p>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Feedback</div>
+                <p className="text-sm text-foreground/75 mt-1.5 sm:mt-2 leading-relaxed italic">{mr.overall_feedback}</p>
               </div>
             </div>
             {(() => {
@@ -218,9 +218,9 @@ export default function WorksheetViewerPage() {
               const topic = `Areas to revisit from "${ws.title}": ${weakTopics.slice(0, 3).join("; ")}`;
               const url = `/worksheets/new?subject=${ws.subject_id || "general"}&topic=${encodeURIComponent(topic)}`;
               return (
-                <div className="mt-5 pt-5 border-t border-black/10 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-sm text-black/60">
-                    <strong className="font-bold text-black">{weakTopics.length}</strong> question{weakTopics.length !== 1 ? "s" : ""} need more work.
+                <div className="mt-5 pt-5 border-t border-border flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-sm text-muted-foreground">
+                    <strong className="font-bold text-foreground">{weakTopics.length}</strong> question{weakTopics.length !== 1 ? "s" : ""} need more work.
                   </div>
                   <button
                     onClick={() => navigate(url)}
@@ -237,17 +237,17 @@ export default function WorksheetViewerPage() {
         )}
 
         {/* Exam paper */}
-        <div className="bg-white border border-black/10 rounded-3xl shadow-[0_4px_40px_rgba(0,0,0,0.04)] overflow-hidden print-area" data-testid="worksheet-paper">
+        <div className="glass-card rounded-3xl shadow-[0_4px_40px_rgba(0,0,0,0.04)] overflow-hidden print-area" data-testid="worksheet-paper">
           {/* FRONT PAGE */}
-          <div className="p-10 md:p-14 border-b-2 border-black/10">
-            <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-2">{ws.subject_name || "Revision paper"}</div>
+          <div className="p-10 md:p-14 border-b-2 border-border">
+            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-2">{ws.subject_name || "Revision paper"}</div>
             <h1 className="display text-4xl md:text-5xl mb-2" data-testid="worksheet-title">{ws.title}</h1>
-            <div className="text-black/55 italic mb-10">Topic: {ws.topic} • Difficulty: {ws.difficulty}</div>
+            <div className="text-muted-foreground italic mb-10">Topic: {ws.topic} • Difficulty: {ws.difficulty}</div>
 
             <div className="grid md:grid-cols-2 gap-8">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-3">Instructions</div>
-                <ul className="text-[15px] leading-relaxed text-black/85 space-y-1.5 list-disc pl-5">
+                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-3">Instructions</div>
+                <ul className="text-[15px] leading-relaxed text-foreground/85 space-y-1.5 list-disc pl-5">
                   {(ws.instructions || "")
                     .split(/(?:•|\n|\.\s+(?=[A-Z]))/)
                     .map(s => s.trim())
@@ -256,8 +256,8 @@ export default function WorksheetViewerPage() {
                 </ul>
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-3">Information</div>
-                <ul className="text-[15px] leading-relaxed text-black/85 space-y-1">
+                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-3">Information</div>
+                <ul className="text-[15px] leading-relaxed text-foreground/85 space-y-1">
                   <li>• Total marks: <strong className="font-semibold">{ws.total_marks}</strong></li>
                   <li>• Suggested time: <strong className="font-semibold">{ws.duration_minutes} minutes</strong></li>
                   <li>• Questions: <strong className="font-semibold">{ws.questions.length}</strong></li>
@@ -274,11 +274,11 @@ export default function WorksheetViewerPage() {
               return (
                 <div key={q.number} data-testid={`question-${q.number}`}>
                   <div className="flex items-start gap-4">
-                    <div className="display text-2xl text-black/30 w-10 shrink-0 tabular-nums">{q.number}.</div>
+                    <div className="display text-2xl text-foreground/30 w-10 shrink-0 tabular-nums">{q.number}.</div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-4">
                         <div className="text-[17px] leading-relaxed flex-1">{q.question}</div>
-                        <div className="text-sm text-black/45 shrink-0 tabular-nums">[{q.marks}]</div>
+                        <div className="text-sm text-muted-foreground shrink-0 tabular-nums">[{q.marks}]</div>
                       </div>
 
                       <StudentAnswerField
@@ -289,22 +289,22 @@ export default function WorksheetViewerPage() {
                       />
 
                       {fb && (
-                        <div className="mt-4 bg-[#FAF8F5] border border-black/10 rounded-2xl px-4 py-3" data-testid={`feedback-${q.number}`}>
+                        <div className="mt-4 glass-card rounded-2xl px-4 py-3" data-testid={`feedback-${q.number}`}>
                           <div className="flex items-center justify-between gap-3 mb-1">
-                            <div className="text-[11px] uppercase tracking-[0.22em] text-black/50">Marker's feedback</div>
+                            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Marker's feedback</div>
                             <div className="text-sm font-semibold tabular-nums">
                               {fb.awarded}/{fb.out_of}
                             </div>
                           </div>
-                          <p className="text-[14px] text-black/75 leading-relaxed">{fb.feedback}</p>
+                          <p className="text-[14px] text-foreground/75 leading-relaxed">{fb.feedback}</p>
                         </div>
                       )}
 
                       {showAnswers && (
-                        <div className="mt-3 bg-black/[0.03] border-l-2 border-black px-4 py-3 rounded-r-2xl" data-testid={`answer-${q.number}`}>
-                          <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-1">Model answer</div>
+                        <div className="mt-3 bg-black/[0.03] dark:bg-white/[0.05] border-l-2 border-foreground px-4 py-3 rounded-r-2xl" data-testid={`answer-${q.number}`}>
+                          <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-1">Model answer</div>
                           <div className="text-[15px]">{q.answer}</div>
-                          {q.explanation && <div className="text-[13px] text-black/55 mt-1.5 italic">{q.explanation}</div>}
+                          {q.explanation && <div className="text-[13px] text-muted-foreground mt-1.5 italic">{q.explanation}</div>}
                         </div>
                       )}
                     </div>
@@ -315,7 +315,7 @@ export default function WorksheetViewerPage() {
           </div>
 
           {/* FOOTER */}
-          <div className="px-8 md:px-14 py-8 border-t border-black/10 text-center text-black/40 text-sm italic">
+          <div className="px-8 md:px-14 py-8 border-t border-border text-center text-muted-foreground text-sm italic">
             — End of paper —
           </div>
         </div>

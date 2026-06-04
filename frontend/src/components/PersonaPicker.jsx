@@ -61,12 +61,12 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
     <div data-testid="persona-picker">
       <div className="flex flex-col sm:flex-row gap-2.5 mb-3">
         <div className="relative flex-1">
-          <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-black/40" />
+          <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
             placeholder="Search personas, e.g. physics, biology…"
-            className="w-full border border-black/15 rounded-2xl pl-9 pr-4 py-2.5 text-sm bg-white focus:outline-none focus:border-black"
+            className="w-full border border-border rounded-2xl pl-9 pr-4 py-2.5 text-sm bg-background focus:outline-none focus:border-foreground"
           />
         </div>
         <button
@@ -87,15 +87,15 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
               key={p.id}
               onClick={() => toggle(p.id)}
               data-testid={`persona-${p.id}`}
-              className={`group relative text-left p-3 rounded-2xl border transition-all ${isSel ? "border-black bg-black text-white" : "border-black/15 bg-white hover:border-black/30"}`}
+              className={`group relative text-left p-3 rounded-2xl border transition-all ${isSel ? "border-foreground bg-foreground text-primary-foreground" : "border-border bg-background hover:border-foreground/30"}`}
             >
               {isSel && (
-                <span className="absolute top-2 right-2 bg-white text-black rounded-full p-0.5">
+                <span className="absolute top-2 right-2 bg-background text-foreground rounded-full p-0.5">
                   <Check size={11} weight="bold" />
                 </span>
               )}
               {isCustom && (
-                <span className={`absolute top-2 ${isSel ? "right-9" : "right-2"} text-[9px] uppercase tracking-widest font-bold rounded-full px-1.5 py-0.5 ${isSel ? "bg-white/15 text-white" : "bg-black/85 text-white"}`}>
+                <span className={`absolute top-2 ${isSel ? "right-9" : "right-2"} text-[9px] uppercase tracking-widest font-bold rounded-full px-1.5 py-0.5 ${isSel ? "bg-primary-foreground/15 text-primary-foreground" : "bg-foreground/85 text-primary-foreground"}`}>
                   Yours
                 </span>
               )}
@@ -103,16 +103,16 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
                 <Avatar persona={p} size={36} />
                 <div className="min-w-0">
                   <div className="text-sm font-bold truncate">{p.name}</div>
-                  <div className={`text-[10px] truncate ${isSel ? "text-white/60" : "text-black/45"}`}>{p.era}</div>
+                  <div className={`text-[10px] truncate ${isSel ? "text-primary-foreground/60" : "text-muted-foreground"}`}>{p.era}</div>
                 </div>
               </div>
-              <div className={`text-[11px] leading-snug ${isSel ? "text-white/70" : "text-black/55"} line-clamp-2`}>
+              <div className={`text-[11px] leading-snug ${isSel ? "text-primary-foreground/70" : "text-muted-foreground"} line-clamp-2`}>
                 {p.title}
               </div>
               {isCustom && (
                 <button
                   onClick={(e) => handleDeleteCustom(e, p.id)}
-                  className={`absolute bottom-2 right-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md ${isSel ? "hover:bg-white/15" : "hover:bg-black/10"}`}
+                  className={`absolute bottom-2 right-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md ${isSel ? "hover:bg-primary-foreground/15" : "hover:bg-black/10 dark:hover:bg-white/10"}`}
                   aria-label="Delete custom persona"
                 >
                   <Trash size={11} weight="regular" />
@@ -122,40 +122,40 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
           );
         })}
         {filtered.length === 0 && (
-          <div className="col-span-full text-center py-8 text-sm text-black/40">No matches</div>
+          <div className="col-span-full text-center py-8 text-sm text-muted-foreground">No matches</div>
         )}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 animate-fade-up" onClick={() => !creating && setShowModal(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()} data-testid="create-persona-modal">
+        <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/70 flex items-center justify-center p-4 animate-fade-up" onClick={() => !creating && setShowModal(false)}>
+          <div className="glass-card rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()} data-testid="create-persona-modal">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Custom character</div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Custom character</div>
                 <h3 className="text-2xl font-extrabold mt-1">Create your own</h3>
               </div>
-              <button onClick={() => !creating && setShowModal(false)} className="text-black/40 hover:text-black p-1" aria-label="Close">
+              <button onClick={() => !creating && setShowModal(false)} className="text-muted-foreground hover:text-foreground p-1" aria-label="Close">
                 <X size={20} weight="regular" />
               </button>
             </div>
-            <p className="text-sm text-black/55 mb-5">The AI will craft a unique personality, voice and area of expertise from your brief.</p>
+            <p className="text-sm text-muted-foreground mb-5">The AI will craft a unique personality, voice and area of expertise from your brief.</p>
 
-            <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Name</label>
+            <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Name</label>
             <input
               value={newName}
               onChange={e => setNewName(e.target.value)}
               placeholder="e.g. Detective Briar"
-              className="w-full border border-black/15 rounded-2xl px-4 py-2.5 mb-4 focus:outline-none focus:border-black text-sm"
+              className="w-full border border-border rounded-2xl px-4 py-2.5 mb-4 focus:outline-none focus:border-foreground text-sm"
               data-testid="custom-persona-name"
             />
 
-            <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Brief</label>
+            <label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground block mb-2">Brief</label>
             <textarea
               value={newBrief}
               onChange={e => setNewBrief(e.target.value)}
               rows={4}
               placeholder="e.g. A 1920s noir detective who solves chemistry puzzles. Smokes a pipe, distrusts technology, quotes Sherlock Holmes."
-              className="w-full border border-black/15 rounded-2xl px-4 py-3 mb-5 focus:outline-none focus:border-black text-sm"
+              className="w-full border border-border rounded-2xl px-4 py-3 mb-5 focus:outline-none focus:border-foreground text-sm"
               data-testid="custom-persona-brief"
             />
 
@@ -163,7 +163,7 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
               <button
                 onClick={() => setShowModal(false)}
                 disabled={creating}
-                className="flex-1 border border-black/15 rounded-2xl py-2.5 text-sm font-bold hover:bg-black/[0.04]"
+                className="flex-1 border border-border rounded-2xl py-2.5 text-sm font-bold hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
               >
                 Cancel
               </button>

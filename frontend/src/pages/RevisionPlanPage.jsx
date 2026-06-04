@@ -90,7 +90,7 @@ export default function RevisionPlanPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-black/40">Loading…</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
 
   const totalTasks = plan?.days?.reduce((a, d) => a + d.tasks.length, 0) || 0;
   const doneTasks = plan?.days?.reduce((a, d) => a + d.tasks.filter(t => t.done).length, 0) || 0;
@@ -131,12 +131,12 @@ export default function RevisionPlanPage() {
   return (
     <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="revision-plan-page">
       <div className="max-w-3xl mx-auto">
-        <button onClick={() => navigate("/exams")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-6">
+        <button onClick={() => navigate("/exams")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Exams
         </button>
 
         <div className="mb-6">
-          <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 flex items-center gap-2">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground flex items-center gap-2">
             <ListChecks size={12} weight="fill" /> Revision plan
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl mt-2 font-extrabold leading-tight">
@@ -145,10 +145,10 @@ export default function RevisionPlanPage() {
         </div>
 
         {!plan && (
-          <div className="bg-white border border-black/10 rounded-3xl p-8 text-center" data-testid="no-plan">
-            <CalendarBlank size={48} weight="duotone" className="mx-auto text-black/30" />
+          <div className="glass-card rounded-3xl p-8 text-center" data-testid="no-plan">
+            <CalendarBlank size={48} weight="duotone" className="mx-auto text-muted-foreground" />
             <div className="font-extrabold text-xl mt-4">No plan yet</div>
-            <p className="text-black/55 mt-2 max-w-md mx-auto text-sm">Let the AI build a personalised day-by-day plan based on your exam date and subject notes.</p>
+            <p className="text-muted-foreground mt-2 max-w-md mx-auto text-sm">Let the AI build a personalised day-by-day plan based on your exam date and subject notes.</p>
             <button
               onClick={handleGenerate}
               disabled={generating}
@@ -162,12 +162,12 @@ export default function RevisionPlanPage() {
 
         {plan && (
           <>
-            <div className="bg-white border border-black/10 rounded-3xl p-4 sm:p-5 mb-5 flex items-center gap-4 flex-wrap">
+            <div className="glass-card rounded-3xl p-4 sm:p-5 mb-5 flex items-center gap-4 flex-wrap">
               <div className="flex-1 min-w-[200px]">
-                <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Progress</div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Progress</div>
                 <div className="text-lg font-extrabold tabular-nums mt-1" data-testid="plan-progress">{doneTasks}/{totalTasks} tasks · {pct}%</div>
-                <div className="mt-2 h-2 bg-black/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-black transition-[width] duration-300" style={{ width: `${pct}%` }} />
+                <div className="mt-2 h-2 bg-foreground/10 rounded-full overflow-hidden">
+                  <div className="h-full bg-foreground transition-[width] duration-300" style={{ width: `${pct}%` }} />
                 </div>
               </div>
               {pendingGenerations > 0 && (
@@ -184,7 +184,7 @@ export default function RevisionPlanPage() {
               <button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="border border-black/15 rounded-2xl px-3 py-2 text-sm font-bold hover:bg-black/[0.04] disabled:opacity-50"
+                className="border border-border rounded-2xl px-3 py-2 text-sm font-bold hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-50"
                 title="Rebuild plan from scratch"
                 data-testid="regenerate-plan-btn"
               >
@@ -194,35 +194,35 @@ export default function RevisionPlanPage() {
 
             <div className="space-y-3">
               {plan.days.map((d, di) => (
-                <div key={di} className="bg-white border border-black/10 rounded-3xl p-5" data-testid={`plan-day-${di}`}>
+                <div key={di} className="glass-card rounded-3xl p-5" data-testid={`plan-day-${di}`}>
                   <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-                    <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 tabular-nums">{formatShortDate(d.date)}</div>
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground tabular-nums">{formatShortDate(d.date)}</div>
                     <div className="font-extrabold text-base sm:text-lg">{d.focus}</div>
                   </div>
                   <ul className="space-y-1.5">
                     {d.tasks.map((t, ti) => (
                       <li key={ti}>
                         <div
-                          className={`w-full flex items-start gap-2.5 px-3 py-2 rounded-2xl transition-colors ${t.done ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"}`}
+                          className={`w-full flex items-start gap-2.5 px-3 py-2 rounded-2xl transition-colors ${t.done ? "bg-black/[0.04] dark:bg-white/[0.06]" : "hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"}`}
                           data-testid={`task-${di}-${ti}`}
                         >
                           <button
                             onClick={() => toggle(di, ti, t.done)}
-                            className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${t.done ? "bg-black border-black text-white" : "border-black/25 bg-white"}`}
+                            className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${t.done ? "bg-foreground border-foreground text-primary-foreground" : "border-foreground/25 bg-background"}`}
                             aria-label="Toggle task"
                           >
                             {t.done && <Check size={12} weight="bold" />}
                           </button>
                           <button
                             onClick={() => toggle(di, ti, t.done)}
-                            className={`flex-1 text-left text-[14px] leading-relaxed ${t.done ? "line-through text-black/45" : "text-black/85"}`}
+                            className={`flex-1 text-left text-[14px] leading-relaxed ${t.done ? "line-through text-muted-foreground" : "text-foreground/85"}`}
                           >
                             {t.text}
                           </button>
                           {t.note_id && (
                             <button
                               onClick={() => navigate(`/notes/${t.note_id}`)}
-                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-black text-white hover:bg-black/85"
+                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-foreground text-primary-foreground hover:bg-foreground/80"
                               data-testid={`task-${di}-${ti}-open-note`}
                               title="Open linked notes"
                             >
@@ -232,7 +232,7 @@ export default function RevisionPlanPage() {
                           {t.worksheet_id && (
                             <button
                               onClick={() => navigate(`/worksheets/${t.worksheet_id}`)}
-                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-black text-white hover:bg-black/85"
+                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-foreground text-primary-foreground hover:bg-foreground/80"
                               data-testid={`task-${di}-${ti}-open-worksheet`}
                               title="Open linked worksheet"
                             >
@@ -243,7 +243,7 @@ export default function RevisionPlanPage() {
                             <button
                               onClick={() => genContent(di, ti, "note")}
                               disabled={!!busyTask}
-                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border border-black/25 text-black/80 hover:bg-black/[0.05] disabled:opacity-50"
+                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border border-foreground/25 text-foreground/80 hover:bg-black/[0.05] dark:hover:bg-white/[0.1] disabled:opacity-50"
                               data-testid={`task-${di}-${ti}-gen-note`}
                               title={`Generate notes on: ${t.auto_note_topic}`}
                             >
@@ -254,7 +254,7 @@ export default function RevisionPlanPage() {
                             <button
                               onClick={() => genContent(di, ti, "worksheet")}
                               disabled={!!busyTask}
-                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border border-black/25 text-black/80 hover:bg-black/[0.05] disabled:opacity-50"
+                              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border border-foreground/25 text-foreground/80 hover:bg-black/[0.05] dark:hover:bg-white/[0.1] disabled:opacity-50"
                               data-testid={`task-${di}-${ti}-gen-worksheet`}
                               title={`Generate worksheet on: ${t.auto_worksheet_topic}`}
                             >

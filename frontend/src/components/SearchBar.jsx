@@ -72,28 +72,28 @@ export default function SearchBar() {
   return (
     <div ref={wrapRef} className="relative px-3 pt-3 pb-2" data-testid="search-wrap">
       <div className="relative">
-        <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-black/40" />
+        <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={q}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           placeholder="Search…  ⌘K"
-          className="w-full bg-black/[0.04] hover:bg-black/[0.06] focus:bg-white border border-transparent focus:border-black/30 rounded-2xl pl-9 pr-3 py-2 text-[13px] outline-none transition-colors"
+          className="w-full bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.06] dark:hover:bg-white/[0.1] focus:bg-background border border-transparent focus:border-foreground/30 rounded-2xl pl-9 pr-3 py-2 text-[13px] outline-none transition-colors"
           data-testid="sidebar-search-input"
         />
       </div>
 
       {open && q.trim() && (
         <div
-          className="absolute left-3 right-3 top-full mt-1 bg-white border border-black/15 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] max-h-[60vh] overflow-y-auto z-50"
+          className="absolute left-3 right-3 top-full mt-1 glass-card rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] max-h-[60vh] overflow-y-auto z-50"
           data-testid="search-results-panel"
         >
           {loading && totalResults === 0 && (
-            <div className="px-4 py-3 text-[12px] text-black/45">Searching…</div>
+            <div className="px-4 py-3 text-[12px] text-muted-foreground">Searching…</div>
           )}
           {!loading && totalResults === 0 && results && (
-            <div className="px-4 py-3 text-[12px] text-black/45" data-testid="search-no-results">No results for "{q}"</div>
+            <div className="px-4 py-3 text-[12px] text-muted-foreground" data-testid="search-no-results">No results for "{q}"</div>
           )}
           {results && GROUPS.map(g => {
             const items = results[g.key] || [];
@@ -101,14 +101,14 @@ export default function SearchBar() {
             const Icon = g.icon;
             return (
               <div key={g.key} className="py-1.5">
-                <div className="px-3 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.22em] text-black/40 flex items-center gap-1.5">
+                <div className="px-3 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground flex items-center gap-1.5">
                   <Icon size={10} weight="fill" /> {g.label}
                 </div>
                 {items.map(it => (
                   <button
                     key={`${g.key}-${it.id}`}
                     onClick={() => go(g.to(it))}
-                    className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-black/[0.04] flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center gap-2"
                     data-testid={`search-result-${g.key}-${it.id}`}
                   >
                     <Icon size={12} weight="regular" className="opacity-60 shrink-0" />

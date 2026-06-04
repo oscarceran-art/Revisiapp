@@ -1,9 +1,10 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, SunDim, Moon } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
 import { useTimer } from "@/context/TimerContext";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "next-themes";
 import { deleteSession, deleteWorksheet, deleteNote } from "@/lib/api";
 import { toast } from "sonner";
 import SearchBar from "@/components/SearchBar";
@@ -154,6 +155,7 @@ export default function Layout() {
   const { subjects, sessions, worksheets, notes, collapsed, toggleCollapsed } = useSidebarData();
   const { state: timerState, setOpen: setTimerOpen } = useTimer();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   useExamReminders();
 
   const handleLogout = () => {
@@ -189,7 +191,7 @@ export default function Layout() {
   const showCollapsed = collapsed && !mobileOpen;
 
   return (
-    <div className="min-h-screen text-black">
+    <div className="min-h-screen text-foreground">
       <button
         className="md:hidden fixed top-3 left-3 z-50 bg-white border border-black/10 rounded-full p-2.5 shadow-sm"
         onClick={() => setMobileOpen(!mobileOpen)}
@@ -200,7 +202,7 @@ export default function Layout() {
       </button>
 
       <aside
-        className={`fixed top-0 left-0 z-40 h-[100dvh] bg-white/95 backdrop-blur-sm border-r border-black/10 flex flex-col transition-all duration-200 ${sidebarWidth} ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 shadow-[2px_0_20px_rgba(0,0,0,0.03)]`}
+        className={`fixed top-0 left-0 z-40 h-[100dvh] glass-card border-r border-white/20 dark:border-white/[0.06] flex flex-col transition-all duration-200 ${sidebarWidth} ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
         data-testid="sidebar"
       >
         <div className={`flex items-center justify-between pt-5 pb-3 ${showCollapsed ? "px-3" : "px-5"}`}>
@@ -246,10 +248,18 @@ export default function Layout() {
             <button
               onClick={() => setTimerOpen(!timerState.open)}
               title="Focus timer"
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${timerState.open ? "bg-black text-white" : "hover:bg-black/[0.05] text-black/70"}`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${timerState.open ? "bg-foreground text-background" : "hover:bg-black/[0.05] dark:hover:bg-white/[0.1] text-black/70 dark:text-white/70"}`}
               data-testid="collapsed-nav-timer"
             >
               <Timer size={18} weight="regular" />
+            </button>
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.1] text-black/70 dark:text-white/70"
+              data-testid="collapsed-nav-theme"
+            >
+              {theme === "dark" ? <SunDim size={18} weight="regular" /> : <Moon size={18} weight="regular" />}
             </button>
             {/* Logout - collapsed */}
             <button
@@ -315,10 +325,10 @@ export default function Layout() {
                 </NavLink>
               )}
 
-              <div className="mt-3 pt-3 border-t border-black/10 flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setTimerOpen(!timerState.open)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold border transition-colors ${timerState.open ? "bg-black text-white border-black" : "border-black/15 hover:bg-black/[0.04]"}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold border transition-colors ${timerState.open ? "bg-foreground text-background border-foreground" : "border-border hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"}`}
                   data-testid="sidebar-timer-toggle"
                 >
                   <Timer size={13} weight="regular" /> Timer
@@ -327,7 +337,7 @@ export default function Layout() {
                 {notifPerm !== "granted" && (
                   <button
                     onClick={requestNotif}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold border border-black/15 hover:bg-black/[0.04]"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold border border-border hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
                     data-testid="sidebar-enable-notif"
                     title="Enable browser notifications for exam-morning reminders"
                   >
@@ -335,10 +345,19 @@ export default function Layout() {
                   </button>
                 )}
                 {notifPerm === "granted" && (
-                  <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold text-black/55" title="Exam reminders on">
+                  <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold text-muted-foreground" title="Exam reminders on">
                     <Bell size={13} weight="fill" /> Alerts on
                   </div>
                 )}
+                <button
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold border border-border hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                  data-testid="sidebar-theme-toggle"
+                  aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                >
+                  {theme === "dark" ? <SunDim size={13} weight="regular" /> : <Moon size={13} weight="regular" />}
+                  {theme === "dark" ? "Light" : "Dark"}
+                </button>
               </div>
 
               {/* User info + logout */}

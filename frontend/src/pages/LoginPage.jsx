@@ -22,81 +22,62 @@ export default function LoginPage() {
 
     await new Promise((r) => setTimeout(r, 320));
 
-    const result = await login(username, password); // ← FIXED: added await (login is async)
+    const result = await login(username, password);
     setLoading(false);
 
     if (result.ok) {
-      navigate(result.user?.is_admin ? "/admin" : from, { replace: true }); // ← FIXED: admins go to /admin
+      navigate(result.user?.is_admin ? "/admin" : from, { replace: true });
     } else {
       setError(result.error);
     }
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ background: "#FAF8F5" }}
-    >
-      {/* Subtle decorative blob */}
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-br from-background via-background to-pink-50/30 dark:to-pink-950/10 relative overflow-hidden">
+      {/* Iridescent decorative blobs */}
       <div
         className="pointer-events-none fixed inset-0 overflow-hidden"
         aria-hidden="true"
       >
         <div
+          className="absolute -top-[10%] -right-[8%] w-[520px] h-[520px] rounded-full"
           style={{
-            position: "absolute",
-            top: "-10%",
-            right: "-8%",
-            width: "520px",
-            height: "520px",
-            borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(0,0,0,0.04) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(244,114,182,0.12) 0%, transparent 70%)",
           }}
         />
         <div
+          className="absolute -bottom-[12%] -left-[6%] w-[400px] h-[400px] rounded-full"
           style={{
-            position: "absolute",
-            bottom: "-12%",
-            left: "-6%",
-            width: "400px",
-            height: "400px",
-            borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(0,0,0,0.03) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)",
           }}
         />
       </div>
 
-      <div className="w-full max-w-sm page-fade">
+      <div className="w-full max-w-sm page-fade relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-2.5 mb-10">
-          <div className="w-9 h-9 bg-black rounded-2xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-foreground rounded-2xl flex items-center justify-center">
             <Brain size={18} color="white" weight="fill" />
           </div>
           <span
-            className="text-[22px] font-black tracking-tight"
+            className="text-[22px] font-black tracking-tight text-foreground"
             style={{ fontFamily: "Nunito, sans-serif" }}
           >
             Revisiapp
           </span>
         </div>
 
-        {/* Card */}
-        <div
-          className="bg-white border rounded-3xl p-8"
-          style={{ borderColor: "hsl(30 15% 88%)" }}
-        >
+        {/* Glass card */}
+        <div className="glass-card rounded-3xl p-8">
           <h1
-            className="text-[26px] font-extrabold tracking-tight mb-1"
+            className="text-[26px] font-extrabold tracking-tight mb-1 text-foreground"
             style={{ fontFamily: "Nunito, sans-serif" }}
           >
             Welcome back
           </h1>
-          <p
-            className="text-[14px] mb-7"
-            style={{ color: "rgba(0,0,0,0.45)" }}
-          >
+          <p className="text-[14px] mb-7 text-muted-foreground">
             Sign in to continue revising
           </p>
 
@@ -105,8 +86,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="username"
-                className="block text-[12px] font-bold uppercase tracking-[0.18em] mb-2"
-                style={{ color: "rgba(0,0,0,0.55)" }}
+                className="block text-[12px] font-bold uppercase tracking-[0.18em] mb-2 text-muted-foreground"
               >
                 Username
               </label>
@@ -121,20 +101,8 @@ export default function LoginPage() {
                   setError("");
                 }}
                 placeholder="your name"
-                className="w-full px-4 py-3 rounded-2xl text-[15px] outline-none transition-all"
-                style={{
-                  background: "hsl(38 25% 93%)",
-                  border: "1.5px solid transparent",
-                  fontFamily: "Nunito, sans-serif",
-                }}
-                onFocus={(e) => {
-                  e.target.style.border = "1.5px solid rgba(0,0,0,0.35)";
-                  e.target.style.background = "white";
-                }}
-                onBlur={(e) => {
-                  e.target.style.border = "1.5px solid transparent";
-                  e.target.style.background = "hsl(38 25% 93%)";
-                }}
+                className="w-full px-4 py-3 rounded-2xl text-[15px] outline-none transition-all bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:bg-background focus:border-foreground/30"
+                style={{ fontFamily: "Nunito, sans-serif" }}
               />
             </div>
 
@@ -142,8 +110,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-[12px] font-bold uppercase tracking-[0.18em] mb-2"
-                style={{ color: "rgba(0,0,0,0.55)" }}
+                className="block text-[12px] font-bold uppercase tracking-[0.18em] mb-2 text-muted-foreground"
               >
                 Password
               </label>
@@ -158,26 +125,13 @@ export default function LoginPage() {
                     setError("");
                   }}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-12 rounded-2xl text-[15px] outline-none transition-all"
-                  style={{
-                    background: "hsl(38 25% 93%)",
-                    border: "1.5px solid transparent",
-                    fontFamily: "Nunito, sans-serif",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.border = "1.5px solid rgba(0,0,0,0.35)";
-                    e.target.style.background = "white";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.border = "1.5px solid transparent";
-                    e.target.style.background = "hsl(38 25% 93%)";
-                  }}
+                  className="w-full px-4 py-3 pr-12 rounded-2xl text-[15px] outline-none transition-all bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:bg-background focus:border-foreground/30"
+                  style={{ fontFamily: "Nunito, sans-serif" }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-black/[0.06] transition-colors"
-                  style={{ color: "rgba(0,0,0,0.4)" }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-foreground/10 transition-colors text-muted-foreground"
                   tabIndex={-1}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
@@ -193,12 +147,8 @@ export default function LoginPage() {
             {/* Error */}
             {error && (
               <div
-                className="text-[13px] px-4 py-2.5 rounded-2xl"
-                style={{
-                  background: "rgba(220,38,38,0.07)",
-                  color: "rgb(185,28,28)",
-                  fontFamily: "Nunito, sans-serif",
-                }}
+                className="text-[13px] px-4 py-2.5 rounded-2xl bg-destructive/10 text-destructive"
+                style={{ fontFamily: "Nunito, sans-serif" }}
               >
                 {error}
               </div>
@@ -230,8 +180,8 @@ export default function LoginPage() {
         </div>
 
         <p
-          className="text-center text-[12px] mt-6"
-          style={{ color: "rgba(0,0,0,0.35)", fontFamily: "Nunito, sans-serif" }}
+          className="text-center text-[12px] mt-6 text-muted-foreground/70"
+          style={{ fontFamily: "Nunito, sans-serif" }}
         >
           Enter any username &amp; a password (4+ chars) to get started
         </p>
