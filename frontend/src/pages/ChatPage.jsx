@@ -40,17 +40,29 @@ const CONTEXT_OPTIONS = [
 
 const IMAGE_MODEL_OPTIONS = [
   { id: "off", label: "Off", desc: "No image generation" },
-  { id: "dall-e-3", label: "DALL-E 3", desc: "Best quality, supports HD & wide sizes." },
-  { id: "dall-e-2", label: "DALL-E 2", desc: "Faster & cheaper, up to 1024×1024." },
+  { id: "chatgpt-1-mini", label: "ChatGPT 1 Mini", desc: "Fast & cheap — lower resolution." },
+  { id: "chatgpt-1", label: "ChatGPT 1", desc: "Standard quality, good for most tasks." },
+  { id: "chatgpt-1.5", label: "ChatGPT 1.5", desc: "Mid-tier with HD & wide sizes." },
+  { id: "chatgpt-2", label: "ChatGPT 2", desc: "Best quality with HD & wide sizes." },
 ];
 
 const IMAGE_SIZE_OPTIONS = {
-  "dall-e-3": [
+  "chatgpt-2": [
     { value: "1024x1024", label: "Square (1024×1024)" },
     { value: "1792x1024", label: "Wide (1792×1024)" },
     { value: "1024x1792", label: "Tall (1024×1792)" },
   ],
-  "dall-e-2": [
+  "chatgpt-1.5": [
+    { value: "1024x1024", label: "Square (1024×1024)" },
+    { value: "1792x1024", label: "Wide (1792×1024)" },
+    { value: "1024x1792", label: "Tall (1024×1792)" },
+  ],
+  "chatgpt-1": [
+    { value: "1024x1024", label: "Large (1024×1024)" },
+    { value: "1792x1024", label: "Wide (1792×1024)" },
+    { value: "1024x1792", label: "Tall (1024×1792)" },
+  ],
+  "chatgpt-1-mini": [
     { value: "256x256", label: "Small (256×256)" },
     { value: "512x512", label: "Medium (512×512)" },
     { value: "1024x1024", label: "Large (1024×1024)" },
@@ -509,7 +521,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={toggleVoice}
-                className={`absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${listening ? "bg-red-500 text-white animate-pulse" : "text-black/55 hover:bg-black/[0.06]"}`}
+                className={`absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors appearance-none ${listening ? "bg-red-500 text-white animate-pulse" : "bg-transparent text-black/55 hover:bg-black/[0.06]"}`}
                 data-testid="voice-input-btn"
                 aria-label={listening ? "Stop voice input" : "Start voice input"}
                 title={listening ? "Stop recording" : "Hold-free voice input (browser native)"}
@@ -706,7 +718,7 @@ export default function ChatPage() {
                     </div>
                   </div>
 
-                  {settings.image_model === "dall-e-3" && (
+                  {["chatgpt-2", "chatgpt-1.5"].includes(settings.image_model) && (
                     <>
                       {/* Quality */}
                       <div className="mb-3">

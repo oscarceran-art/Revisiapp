@@ -74,14 +74,28 @@ AI_MODELS = {
 if DEFAULT_AI_MODEL not in AI_MODELS:
     DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
 IMAGE_MODELS = {
-    "dall-e-3": {
-        "label": "DALL-E 3",
-        "description": "Best quality, supports HD & custom sizes up to 1792×1024.",
+    "chatgpt-2": {
+        "label": "ChatGPT 2",
+        "description": "Best quality with HD & wide sizes (1792×1024).",
     },
-    "dall-e-2": {
-        "label": "DALL-E 2",
-        "description": "Faster & cheaper, supports sizes up to 1024×1024.",
+    "chatgpt-1.5": {
+        "label": "ChatGPT 1.5",
+        "description": "Mid-tier, supports HD & wide sizes.",
     },
+    "chatgpt-1": {
+        "label": "ChatGPT 1",
+        "description": "Standard quality, good for most tasks.",
+    },
+    "chatgpt-1-mini": {
+        "label": "ChatGPT 1 Mini",
+        "description": "Fast & cheap, lower resolution (up to 1024×1024).",
+    },
+}
+IMAGE_MODEL_MAP = {
+    "chatgpt-2": "dall-e-3",
+    "chatgpt-1.5": "dall-e-3",
+    "chatgpt-1": "dall-e-3",
+    "chatgpt-1-mini": "dall-e-2",
 }
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
@@ -160,7 +174,7 @@ class ChatSessionSettings(BaseModel):
     ai_mode: Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"] = "normal"
     strictness: int = 5
     context_window: int = 0
-    image_model: Literal["off", "dall-e-2", "dall-e-3"] = "off"
+    image_model: Literal["off", "chatgpt-1-mini", "chatgpt-1", "chatgpt-1.5", "chatgpt-2"] = "off"
     image_size: str = "1024x1024"
     image_quality: Literal["standard", "hd"] = "standard"
     image_style: Literal["vivid", "natural"] = "vivid"
@@ -192,7 +206,7 @@ class ChatSessionSettingsUpdate(BaseModel):
     ai_mode: Optional[Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"]] = None
     strictness: Optional[int] = None
     context_window: Optional[int] = None
-    image_model: Optional[Literal["off", "dall-e-2", "dall-e-3"]] = None
+    image_model: Optional[Literal["off", "chatgpt-1-mini", "chatgpt-1", "chatgpt-1.5", "chatgpt-2"]] = None
     image_size: Optional[str] = None
     image_quality: Optional[Literal["standard", "hd"]] = None
     image_style: Optional[Literal["vivid", "natural"]] = None
@@ -200,7 +214,7 @@ class ChatSessionSettingsUpdate(BaseModel):
 
 class ImageGenerationRequest(BaseModel):
     prompt: str
-    model: Literal["dall-e-2", "dall-e-3"] = "dall-e-3"
+    model: Literal["chatgpt-1-mini", "chatgpt-1", "chatgpt-1.5", "chatgpt-2"] = "chatgpt-1"
     n: int = 1
     size: str = "1024x1024"
     quality: Literal["standard", "hd"] = "standard"
@@ -551,7 +565,12 @@ async def update_session_settings(session_id: str, payload: ChatSessionSettingsU
     if 'context_window' in updates:
         updates['context_window'] = max(0, int(updates['context_window']))
     if 'image_size' in updates:
-        valid = {"dall-e-2": ["256x256", "512x512", "1024x1024"], "dall-e-3": ["1024x1024", "1792x1024", "1024x1792"]}
+        valid = {
+            "chatgpt-1-mini": ["256x256", "512x512", "1024x1024"],
+            "chatgpt-1": ["1024x1024", "1792x1024", "1024x1792"],
+            "chatgpt-1.5": ["1024x1024", "1792x1024", "1024x1792"],
+            "chatgpt-2": ["1024x1024", "1792x1024", "1024x1792"],
+        }
         model = updates.get('image_model') or current.get('image_model', 'off')
         if updates['image_size'] not in valid.get(model, []):
             updates['image_size'] = "1024x1024"
@@ -2352,9 +2371,12 @@ async def search(q: str = "", authorization: Optional[str] = Header(None)):
 
 # ---------- IMAGE GENERATION ----------
 IMAGE_SIZE_OPTIONS = {
-    "dall-e-2": ["256x256", "512x512", "1024x1024"],
-    "dall-e-3": ["1024x1024", "1792x1024", "1024x1792"],
+    "chatgpt-1-mini": ["256x256", "512x512", "1024x1024"],
+    "chatgpt-1": ["1024x1024", "1792x1024", "1024x1792"],
+    "chatgpt-1.5": ["1024x1024", "1792x1024", "1024x1792"],
+    "chatgpt-2": ["1024x1024", "1792x1024", "1024x1792"],
 }
+DALLE3_MODELS = {"chatgpt-2", "chatgpt-1.5"}
 
 
 @api_router.post("/images/generate")
@@ -2365,17 +2387,18 @@ async def generate_image(req: ImageGenerationRequest, authorization: Optional[st
     estimated_tokens = 2000
     await auth_module.check_and_charge_tokens(user, estimated_tokens)
 
+    api_model = IMAGE_MODEL_MAP.get(req.model)
+    if not api_model:
+        raise HTTPException(status_code=400, detail=f"Unknown image model: {req.model}")
+
     valid_sizes = IMAGE_SIZE_OPTIONS.get(req.model, [])
     if req.size not in valid_sizes:
         raise HTTPException(status_code=400, detail=f"Size {req.size} not valid for {req.model}. Choose from: {', '.join(valid_sizes)}")
 
-    kwargs = dict(model=req.model, prompt=req.prompt, n=min(max(1, req.n), 4))
-    if req.model == "dall-e-3":
-        kwargs["size"] = req.size
+    kwargs = dict(model=api_model, prompt=req.prompt, n=min(max(1, req.n), 4), size=req.size)
+    if req.model in DALLE3_MODELS:
         kwargs["quality"] = req.quality
         kwargs["style"] = req.style
-    else:
-        kwargs["size"] = req.size
 
     try:
         resp = await openai_client.images.generate(**kwargs)
