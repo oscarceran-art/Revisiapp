@@ -125,6 +125,9 @@ export const setWorksheetConfidence = (id, rating, notes = "") =>
 
 export const search = (q) => api.get(`/search`, { params: { q } }).then(r => r.data);
 
+// Image generation
+export const generateImage = (data) => api.post("/images/generate", data).then(r => r.data);
+
 // Admin
 export const adminListUsers = () => api.get("/admin/users").then(r => r.data);
 export const adminUpdateUser = (id, data) => api.patch(`/admin/users/${id}`, data).then(r => r.data);

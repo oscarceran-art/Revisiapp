@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  PaperPlaneTilt, ChatCircleText, Gear, Sun, NotePencil, X, Brain, Microphone, Cpu
+  PaperPlaneTilt, ChatCircleText, Gear, Sun, NotePencil, X, Brain, Microphone, Cpu, ImageSquare
 } from "@phosphor-icons/react";
 import {
   getMessages, sendUserMessage, streamReply,
-  updateSessionSettings, generateMorningQuiz, summariseChat,
+  updateSessionSettings, generateMorningQuiz, summariseChat, generateImage,
 } from "@/lib/api";
 import { useSidebarData } from "@/context/SidebarContext";
 import Markdown from "@/components/Markdown";
@@ -38,7 +38,36 @@ const CONTEXT_OPTIONS = [
   { value: 0, label: "Whole chat", desc: "Full context (costliest)" },
 ];
 
-const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0 };
+const IMAGE_MODEL_OPTIONS = [
+  { id: "off", label: "Off", desc: "No image generation" },
+  { id: "dall-e-3", label: "DALL-E 3", desc: "Best quality, supports HD & wide sizes." },
+  { id: "dall-e-2", label: "DALL-E 2", desc: "Faster & cheaper, up to 1024×1024." },
+];
+
+const IMAGE_SIZE_OPTIONS = {
+  "dall-e-3": [
+    { value: "1024x1024", label: "Square (1024×1024)" },
+    { value: "1792x1024", label: "Wide (1792×1024)" },
+    { value: "1024x1792", label: "Tall (1024×1792)" },
+  ],
+  "dall-e-2": [
+    { value: "256x256", label: "Small (256×256)" },
+    { value: "512x512", label: "Medium (512×512)" },
+    { value: "1024x1024", label: "Large (1024×1024)" },
+  ],
+};
+
+const IMAGE_QUALITY_OPTIONS = [
+  { value: "standard", label: "Standard", desc: "Faster, cheaper" },
+  { value: "hd", label: "HD", desc: "Higher detail (DALL-E 3 only)" },
+];
+
+const IMAGE_STYLE_OPTIONS = [
+  { value: "vivid", label: "Vivid", desc: "Hyper-real & dramatic" },
+  { value: "natural", label: "Natural", desc: "More photo-like" },
+];
+
+const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0, image_model: "off", image_size: "1024x1024", image_quality: "standard", image_style: "vivid" };
 
 export default function ChatPage() {
   const { sessionId } = useParams();
@@ -54,6 +83,7 @@ export default function ChatPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [busyAction, setBusyAction] = useState(null); // 'quiz' | 'summary'
   const [listening, setListening] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
   const recognitionRef = useRef(null);
   const baseInputRef = useRef("");
   const scrollRef = useRef(null);
@@ -255,6 +285,30 @@ export default function ChatPage() {
   };
 
   useEffect(() => () => { try { recognitionRef.current?.stop(); } catch (_) { /* ignore */ } }, []);
+
+  const handleGenerateImage = async () => {
+    if (!input.trim() || !sessionId || generatingImage) return;
+    const prompt = input;
+    setInput("");
+    setGeneratingImage(true);
+    const tempId = `tmp-img-${Date.now()}`;
+    setMessages(prev => [...prev, { id: tempId, role: "user", content: `🎨 ${prompt}` }]);
+    try {
+      await sendUserMessage(sessionId, prompt);
+      const result = await generateImage({
+        prompt, model: settings.image_model, size: settings.image_size,
+        quality: settings.image_quality, style: settings.image_style,
+      });
+      const imgMsg = { id: `img-${Date.now()}`, role: "assistant", content: `![${prompt}](${result.url})` };
+      setMessages(prev => [...prev, imgMsg]);
+      toast.success("Image generated");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Image generation failed");
+      setMessages(prev => prev.filter(m => m.id === tempId));
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
 
   const handleSummarise = async () => {    if (busyAction) return;
     if (messages.length === 0) { toast.error("Chat first, then summarise."); return; }
@@ -463,6 +517,19 @@ export default function ChatPage() {
                 <Microphone size={16} weight={listening ? "fill" : "regular"} />
               </button>
             </div>
+            {settings.image_model !== "off" && (
+              <button
+                type="button"
+                onClick={handleGenerateImage}
+                disabled={generatingImage || !input.trim() || sending}
+                className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center border border-black/15 bg-white hover:bg-black/[0.04] text-black/70 transition-colors disabled:opacity-30"
+                data-testid="generate-image-btn"
+                aria-label="Generate image"
+                title={`Generate image (${settings.image_model})`}
+              >
+                <ImageSquare size={18} weight={generatingImage ? "fill" : "regular"} />
+              </button>
+            )}
             <button
               onClick={handleSend}
               disabled={sending || !input.trim()}
@@ -595,6 +662,95 @@ export default function ChatPage() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* Image Generation */}
+            <div className="mb-2">
+              <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2 flex items-center gap-1.5">
+                <ImageSquare size={11} weight="fill" /> Image generation
+              </label>
+              <div className="grid grid-cols-1 gap-2 mb-4">
+                {IMAGE_MODEL_OPTIONS.map(m => {
+                  const active = settings.image_model === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => updateSetting({ image_model: m.id })}
+                      className={`text-left p-3 rounded-2xl border transition-all ${active ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
+                    >
+                      <div className="text-sm font-bold">{m.label}</div>
+                      <div className={`text-[11px] mt-0.5 leading-snug ${active ? "text-white/70" : "text-black/55"}`}>{m.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {settings.image_model !== "off" && (
+                <>
+                  {/* Image size */}
+                  <div className="mb-3">
+                    <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Size</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(IMAGE_SIZE_OPTIONS[settings.image_model] || []).map(s => {
+                        const szActive = settings.image_size === s.value;
+                        return (
+                          <button
+                            key={s.value}
+                            onClick={() => updateSetting({ image_size: s.value })}
+                            className={`text-[11px] font-bold p-2 rounded-xl border transition-all ${szActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
+                          >
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {settings.image_model === "dall-e-3" && (
+                    <>
+                      {/* Quality */}
+                      <div className="mb-3">
+                        <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Quality</label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {IMAGE_QUALITY_OPTIONS.map(q => {
+                            const qActive = settings.image_quality === q.value;
+                            return (
+                              <button
+                                key={q.value}
+                                onClick={() => updateSetting({ image_quality: q.value })}
+                                className={`text-left p-2 rounded-xl border transition-all ${qActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
+                              >
+                                <div className="text-[11px] font-bold">{q.label}</div>
+                                <div className={`text-[10px] mt-0.5 ${qActive ? "text-white/70" : "text-black/55"}`}>{q.desc}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Style */}
+                      <div className="mb-2">
+                        <label className="text-[10px] uppercase tracking-[0.2em] text-black/50 block mb-2">Style</label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {IMAGE_STYLE_OPTIONS.map(st => {
+                            const stActive = settings.image_style === st.value;
+                            return (
+                              <button
+                                key={st.value}
+                                onClick={() => updateSetting({ image_style: st.value })}
+                                className={`text-left p-2 rounded-xl border transition-all ${stActive ? "bg-black text-white border-black" : "bg-white border-black/15 hover:border-black/30"}`}
+                              >
+                                <div className="text-[11px] font-bold">{st.label}</div>
+                                <div className={`text-[10px] mt-0.5 ${stActive ? "text-white/70" : "text-black/55"}`}>{st.desc}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

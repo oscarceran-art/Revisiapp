@@ -73,6 +73,16 @@ AI_MODELS = {
 }
 if DEFAULT_AI_MODEL not in AI_MODELS:
     DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
+IMAGE_MODELS = {
+    "dall-e-3": {
+        "label": "DALL-E 3",
+        "description": "Best quality, supports HD & custom sizes up to 1792×1024.",
+    },
+    "dall-e-2": {
+        "label": "DALL-E 2",
+        "description": "Faster & cheaper, supports sizes up to 1024×1024.",
+    },
+}
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 
@@ -150,6 +160,10 @@ class ChatSessionSettings(BaseModel):
     ai_mode: Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"] = "normal"
     strictness: int = 5
     context_window: int = 0
+    image_model: Literal["off", "dall-e-2", "dall-e-3"] = "off"
+    image_size: str = "1024x1024"
+    image_quality: Literal["standard", "hd"] = "standard"
+    image_style: Literal["vivid", "natural"] = "vivid"
 
 
 class ChatSession(BaseModel):
@@ -178,6 +192,19 @@ class ChatSessionSettingsUpdate(BaseModel):
     ai_mode: Optional[Literal["normal", "quiz", "socratic", "flashcard", "exam_prep", "eli5"]] = None
     strictness: Optional[int] = None
     context_window: Optional[int] = None
+    image_model: Optional[Literal["off", "dall-e-2", "dall-e-3"]] = None
+    image_size: Optional[str] = None
+    image_quality: Optional[Literal["standard", "hd"]] = None
+    image_style: Optional[Literal["vivid", "natural"]] = None
+
+
+class ImageGenerationRequest(BaseModel):
+    prompt: str
+    model: Literal["dall-e-2", "dall-e-3"] = "dall-e-3"
+    n: int = 1
+    size: str = "1024x1024"
+    quality: Literal["standard", "hd"] = "standard"
+    style: Literal["vivid", "natural"] = "vivid"
 
 
 class ChatMessage(BaseModel):
@@ -346,7 +373,7 @@ def extract_text_from_upload(filename: str, raw: bytes) -> str:
 # ---------- BASIC ----------
 @api_router.get("/")
 async def root():
-    return {"message": "Revisia API", "model": DEFAULT_AI_MODEL, "models": AI_MODELS}
+    return {"message": "Revisia API", "model": DEFAULT_AI_MODEL, "models": AI_MODELS, "image_models": IMAGE_MODELS}
 
 
 @api_router.get("/health")
@@ -523,6 +550,11 @@ async def update_session_settings(session_id: str, payload: ChatSessionSettingsU
         updates['strictness'] = max(1, min(10, int(updates['strictness'])))
     if 'context_window' in updates:
         updates['context_window'] = max(0, int(updates['context_window']))
+    if 'image_size' in updates:
+        valid = {"dall-e-2": ["256x256", "512x512", "1024x1024"], "dall-e-3": ["1024x1024", "1792x1024", "1024x1792"]}
+        model = updates.get('image_model') or current.get('image_model', 'off')
+        if updates['image_size'] not in valid.get(model, []):
+            updates['image_size'] = "1024x1024"
     merged = {**current, **updates}
     merged_model = ChatSessionSettings(**merged)
     await db.chat_sessions.update_one(
@@ -2316,6 +2348,42 @@ async def search(q: str = "", authorization: Optional[str] = Header(None)):
             for e in exams if hit(e.get('name')) or hit(e.get('notes'))
         ][:20],
     }
+
+
+# ---------- IMAGE GENERATION ----------
+IMAGE_SIZE_OPTIONS = {
+    "dall-e-2": ["256x256", "512x512", "1024x1024"],
+    "dall-e-3": ["1024x1024", "1792x1024", "1024x1792"],
+}
+
+
+@api_router.post("/images/generate")
+async def generate_image(req: ImageGenerationRequest, authorization: Optional[str] = Header(None)):
+    _require_ai_client()
+    user = await auth_module.get_current_user(authorization)
+
+    estimated_tokens = 2000
+    await auth_module.check_and_charge_tokens(user, estimated_tokens)
+
+    valid_sizes = IMAGE_SIZE_OPTIONS.get(req.model, [])
+    if req.size not in valid_sizes:
+        raise HTTPException(status_code=400, detail=f"Size {req.size} not valid for {req.model}. Choose from: {', '.join(valid_sizes)}")
+
+    kwargs = dict(model=req.model, prompt=req.prompt, n=min(max(1, req.n), 4))
+    if req.model == "dall-e-3":
+        kwargs["size"] = req.size
+        kwargs["quality"] = req.quality
+        kwargs["style"] = req.style
+    else:
+        kwargs["size"] = req.size
+
+    try:
+        resp = await openai_client.images.generate(**kwargs)
+        url = resp.data[0].url
+        return {"url": url, "revised_prompt": resp.data[0].revised_prompt if hasattr(resp.data[0], "revised_prompt") else None}
+    except Exception as e:
+        logger.exception("Image generation failed")
+        raise HTTPException(status_code=502, detail=f"Image generation error: {str(e)}")
 
 
 # ---------- MOUNT ROUTER + MIDDLEWARE ----------
