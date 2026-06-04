@@ -138,60 +138,65 @@ export default function WorksheetViewerPage() {
   const isMarked = !!mr;
 
   return (
-    <div className="min-h-screen pt-20 md:pt-12 px-6 md:px-14 pb-16" data-testid="worksheet-viewer">
+    <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-viewer">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6 no-print">
           <button onClick={() => navigate("/")} className="text-sm text-black/50 hover:text-black flex items-center gap-1.5">
             <ArrowLeft size={14} weight="bold" /> Home
           </button>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
             <button
               onClick={() => setShowAnswers(v => !v)}
-              className="border border-black/15 rounded-2xl px-4 py-2 text-sm flex items-center gap-2 hover:bg-black/[0.04]"
+              className="border border-black/15 rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:bg-black/[0.04]"
               data-testid="toggle-answers-btn"
             >
-              {showAnswers ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
-              {showAnswers ? "Hide answers" : "Show answers"}
+              {showAnswers ? <EyeSlash size={14} weight="regular" /> : <Eye size={14} weight="regular" />}
+              <span className="hidden sm:inline">{showAnswers ? "Hide answers" : "Show answers"}</span>
+              <span className="sm:hidden">{showAnswers ? "Hide" : "Show"}</span>
             </button>
             <button
               onClick={() => navigate(`/worksheets/${id}/markscheme`)}
-              className="border border-black/15 rounded-2xl px-4 py-2 text-sm flex items-center gap-2 hover:bg-black/[0.04]"
+              className="border border-black/15 rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:bg-black/[0.04]"
               data-testid="view-markscheme-btn"
             >
-              <FileText size={16} weight="regular" /> View markscheme
+              <FileText size={14} weight="regular" />
+              <span className="hidden sm:inline">View markscheme</span>
+              <span className="sm:hidden">Mark scheme</span>
             </button>
             {isMarked && mr.percentage < 100 && (
               <button
                 onClick={() => navigate(`/worksheets/${id}/cheat-sheet`)}
-                className="bg-black text-white rounded-2xl px-4 py-2 text-sm flex items-center gap-2 hover:bg-black/85 font-bold"
+                className="bg-black text-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 hover:bg-black/85 font-bold"
                 data-testid="view-cheat-sheet-btn"
               >
-                <Target size={16} weight="regular" /> Cheat sheet
+                <Target size={14} weight="regular" />
+                <span className="hidden sm:inline">Cheat sheet</span>
+                <span className="sm:hidden">Cheat</span>
               </button>
             )}
-            <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-2 rounded-full" data-testid="delete-worksheet-btn" aria-label="Delete">
-              <Trash size={18} weight="regular" />
+            <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-1.5 sm:p-2 rounded-full" data-testid="delete-worksheet-btn" aria-label="Delete">
+              <Trash size={16} weight="regular" />
             </button>
           </div>
         </div>
 
         {/* Marking summary banner */}
         {isMarked && (
-          <div className="mb-6 bg-white border border-black/10 rounded-3xl p-6 animate-fade-up" data-testid="marking-summary">
-            <div className="flex items-start justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-5">
+          <div className="mb-6 bg-white border border-black/10 rounded-3xl p-5 sm:p-6 animate-fade-up" data-testid="marking-summary">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+              <div className="flex items-center gap-4 sm:gap-5 w-full sm:w-auto">
                 <div className="text-center">
                   <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 mb-1">Score</div>
-                  <div className="display text-5xl leading-none">
-                    {mr.total_awarded}<span className="text-black/30 text-3xl">/{mr.total_out_of}</span>
+                  <div className="display text-4xl sm:text-5xl leading-none">
+                    {mr.total_awarded}<span className="text-black/30 text-2xl sm:text-3xl">/{mr.total_out_of}</span>
                   </div>
                 </div>
-                <div className="w-px h-16 bg-black/10" />
+                <div className="w-px h-14 sm:h-16 bg-black/10 shrink-0" />
                 <div>
-                  <div className={`text-2xl font-extrabold ${mr.percentage >= 80 ? "text-green-600" : mr.percentage >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                  <div className={`text-xl sm:text-2xl font-extrabold ${mr.percentage >= 80 ? "text-green-600" : mr.percentage >= 50 ? "text-amber-600" : "text-red-600"}`}>
                     {Math.round(mr.percentage)}%
                   </div>
-                  <div className="w-32 h-1.5 bg-black/8 rounded-full mt-1.5 overflow-hidden">
+                  <div className="w-24 sm:w-32 h-1.5 bg-black/8 rounded-full mt-1.5 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${mr.percentage >= 80 ? "bg-green-500" : mr.percentage >= 50 ? "bg-amber-500" : "bg-red-500"}`}
                       style={{ width: `${Math.min(100, mr.percentage)}%` }}
@@ -199,9 +204,9 @@ export default function WorksheetViewerPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 min-w-[200px] max-w-md">
+              <div className="flex-1 w-full sm:min-w-[200px] sm:max-w-md">
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Feedback</div>
-                <p className="text-sm text-black/75 mt-2 leading-relaxed italic">{mr.overall_feedback}</p>
+                <p className="text-sm text-black/75 mt-1.5 sm:mt-2 leading-relaxed italic">{mr.overall_feedback}</p>
               </div>
             </div>
             {(() => {

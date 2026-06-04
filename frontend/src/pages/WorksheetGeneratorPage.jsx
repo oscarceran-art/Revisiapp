@@ -47,7 +47,7 @@ export default function WorksheetGeneratorPage() {
   };
 
   return (
-    <div className="min-h-screen pt-20 md:pt-14 px-6 md:px-14 pb-16" data-testid="worksheet-generator-page">
+    <div className="min-h-screen pt-20 md:pt-14 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-generator-page">
       <div className="max-w-2xl mx-auto">
         <button onClick={() => navigate(-1)} className="text-sm text-black/50 hover:text-black flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Back
@@ -59,7 +59,7 @@ export default function WorksheetGeneratorPage() {
           <p className="text-black/55 mt-3">A quick quiz or a full exam-style mock — Revisia builds it and marks it for you.</p>
         </div>
 
-        <div className="bg-white border border-black/10 rounded-3xl p-7 space-y-6">
+        <div className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-5 sm:p-7 space-y-5 sm:space-y-6">
           <div>
             <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Subject</label>
             <select
@@ -100,12 +100,12 @@ export default function WorksheetGeneratorPage() {
 
           <div>
             <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Difficulty</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
               {DIFFICULTIES.map(d => (
                 <button
                   key={d}
                   onClick={() => setForm(v => ({ ...v, difficulty: d }))}
-                  className={`text-sm py-2.5 rounded-2xl border transition-colors capitalize ${form.difficulty === d ? "bg-black text-white border-black" : "bg-white border-black/15 hover:bg-black/[0.04]"}`}
+                  className={`text-xs sm:text-sm py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border transition-colors capitalize ${form.difficulty === d ? "bg-black text-white border-black" : "bg-white border-black/15 hover:bg-black/[0.04]"}`}
                   data-testid={`difficulty-${d}`}
                 >
                   {d}

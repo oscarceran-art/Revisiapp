@@ -87,7 +87,7 @@ export default function SubjectsPage() {
   };
 
   return (
-    <div className="min-h-screen pt-20 md:pt-14 px-6 md:px-14 pb-16" data-testid="subjects-page">
+    <div className="min-h-screen pt-20 md:pt-14 px-4 sm:px-6 md:px-14 pb-16" data-testid="subjects-page">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-end justify-between mb-10">
           <div>
@@ -152,15 +152,15 @@ export default function SubjectsPage() {
           {/* Editor */}
           <div>
             {selected ? (
-              <div className="bg-white border border-black/10 rounded-3xl p-6 md:p-8" data-testid="subject-editor">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8" data-testid="subject-editor">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
                   <input
                     value={editing.name}
                     onChange={e => setEditing(v => ({ ...v, name: e.target.value }))}
-                    className="display text-2xl md:text-3xl bg-transparent border-b border-transparent focus:border-black/30 focus:outline-none w-full md:w-auto"
+                    className="display text-xl sm:text-2xl md:text-3xl bg-transparent border-b border-transparent focus:border-black/30 focus:outline-none w-full sm:w-auto"
                     data-testid="subject-name-input"
                   />
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
                     <input ref={fileRef} type="file" accept=".txt,.md,.pdf,.docx" onChange={handleUpload} className="hidden" data-testid="upload-file-input" />
                     <button onClick={() => fileRef.current?.click()} className="border border-black/15 rounded-2xl px-3 py-2 text-sm flex items-center gap-2 hover:bg-black/[0.04]" data-testid="upload-notes-btn">
                       <UploadSimple size={16} weight="regular" /> Upload notes

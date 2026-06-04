@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -44,6 +44,29 @@ export default function ChatPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { subjects, sessions, personas, refresh, collapsed } = useSidebarData();
+
+  const scrollRef = useRef(null);
+  const textareaRef = useRef(null);
+  const rafRef = useRef(null);
+  const streamBufferRef = useRef("");
+  const fullTextRef = useRef("");
+  const recognitionRef = useRef(null);
+  const baseInputRef = useRef("");
+
+  const activeSession = useMemo(
+    () => (sessionId ? sessions.find(s => s.id === sessionId) ?? null : null),
+    [sessionId, sessions]
+  );
+  const activeSubject = useMemo(
+    () => (activeSession?.subject_id ? subjects.find(s => s.id === activeSession.subject_id) ?? null : null),
+    [activeSession?.subject_id, subjects]
+  );
+  const sessionPersonas = useMemo(
+    () => (activeSession?.personas || []).map(pid => personas.find(p => p.id === pid)).filter(Boolean),
+    [activeSession?.personas, personas]
+  );
+  const isGroup = activeSession?.mode === "group";
+  const subjectLabel = activeSubject?.name || "General";
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -257,7 +280,7 @@ export default function ChatPage() {
   };
 
   const renderHeader = () => (
-    <div className="px-4 sm:px-6 md:px-10 pt-14 md:pt-5 pb-3 border-b border-black/10 bg-[#FAF8F5]/85 backdrop-blur sticky top-0 z-10">
+    <div className="px-3 sm:px-6 md:px-10 pt-12 md:pt-5 pb-2 sm:pb-3 border-b border-black/10 bg-[#FAF8F5]/85 backdrop-blur sticky top-0 z-10">
       <div className={`${collapsed ? "max-w-5xl" : "max-w-3xl"} mx-auto flex items-center justify-between gap-3 transition-[max-width] duration-200`}>
         <div className="min-w-0 flex items-center gap-3">
           {sessionPersonas.length > 0 && (
@@ -309,15 +332,15 @@ export default function ChatPage() {
           persona ? <Avatar persona={persona} size={32} />
             : <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold shrink-0">AI</div>
         )}
-        <div className="max-w-[85%]">
+        <div className="max-w-[88%] sm:max-w-[85%]">
           {!isUser && persona && (
             <div className="text-[11px] font-bold text-black/65 mb-1 ml-1">{persona.name}</div>
           )}
           <div
             className={
               isUser
-                ? "bg-black text-white rounded-3xl rounded-tr-md px-4 py-3 sm:px-5 sm:py-3.5"
-                : "bg-white border border-black/10 rounded-3xl rounded-tl-md px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]"
+                ? "bg-black text-white rounded-2xl sm:rounded-3xl rounded-tr-md px-3 py-2.5 sm:px-5 sm:py-3.5"
+                : "bg-white border border-black/10 rounded-2xl sm:rounded-3xl rounded-tl-md px-3 py-2.5 sm:px-5 sm:py-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]"
             }
             data-testid={`chat-msg-${m.role}`}
           >
@@ -336,12 +359,12 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen font-fraunces" data-testid="chat-page">
       {renderHeader()}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-10 py-6 sm:py-8 scroll-smooth" data-testid="chat-messages">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-10 py-4 sm:py-8 scroll-smooth" data-testid="chat-messages">
         <div className={`${containerWidth} mx-auto transition-[max-width] duration-200`}>
           {messages.length === 0 && !sending && (
             <div className="text-center pt-12 sm:pt-16 animate-fade-up">
-              <ChatCircleText size={56} weight="duotone" className="mx-auto text-black/30" />
-              <h2 className="text-2xl sm:text-3xl md:text-4xl mt-5 font-extrabold">
+              <ChatCircleText size={40} weight="duotone" className="mx-auto text-black/30 sm:size-[56]" />
+              <h2 className="text-xl sm:text-3xl md:text-4xl mt-3 sm:mt-5 font-extrabold">
                 {sessionPersonas.length > 1 ? `${sessionPersonas.map(p => p.name.split(" ").slice(-1)[0]).join(" & ")} are listening` :
                  sessionPersonas.length === 1 ? `Say hello to ${sessionPersonas[0].name}` :
                  activeSession?.mode === "feynman" ? "Teach me something" :
@@ -391,7 +414,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="border-t border-black/10 px-4 sm:px-6 md:px-10 py-3 sm:py-4 bg-white">
+      <div className="border-t border-black/10 px-3 sm:px-6 md:px-10 py-2 sm:py-4 bg-white">
         <div className={`${containerWidth} mx-auto transition-[max-width] duration-200`}>
           {/* Quick chips for mobile (morning quiz / summary) */}
           <div className="flex sm:hidden gap-1.5 mb-2">

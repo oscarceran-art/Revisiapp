@@ -204,50 +204,50 @@ export default function ExamsPage() {
               {upcoming.map(e => {
                 const days = daysBetween(e.exam_date);
                 return (
-                  <div key={e.id} className="bg-white border border-black/10 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center gap-4" data-testid={`exam-${e.id}`}>
+                  <div key={e.id} className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4" data-testid={`exam-${e.id}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <CountdownBadge days={days} />
                         {e.subject_name && <span className="text-[10px] uppercase tracking-[0.22em] text-black/45">{e.subject_name}</span>}
                       </div>
-                      <div className="text-lg sm:text-xl font-extrabold mt-2 truncate">{e.name}</div>
-                      <div className="text-[13px] text-black/55 mt-1 flex flex-wrap items-center gap-3">
-                        <span className="flex items-center gap-1.5"><Clock size={12} weight="regular" /> {formatDate(e.exam_date)}</span>
-                        {e.location && <span className="flex items-center gap-1.5"><MapPin size={12} weight="regular" /> {e.location}</span>}
+                      <div className="text-base sm:text-xl font-extrabold mt-1.5 sm:mt-2 truncate">{e.name}</div>
+                      <div className="text-[12px] sm:text-[13px] text-black/55 mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
+                        <span className="flex items-center gap-1"><Clock size={11} weight="regular" className="sm:size-[12]" /> {formatDate(e.exam_date)}</span>
+                        {e.location && <span className="flex items-center gap-1"><MapPin size={11} weight="regular" className="sm:size-[12]" /> {e.location}</span>}
                       </div>
-                      {e.notes && <p className="text-[13px] text-black/55 mt-2 leading-relaxed">{e.notes}</p>}
+                      {e.notes && <p className="text-[12px] sm:text-[13px] text-black/55 mt-1.5 sm:mt-2 leading-relaxed">{e.notes}</p>}
                     </div>
-                    <div className="flex sm:flex-col gap-2 shrink-0">
+                    <div className="flex sm:flex-col gap-1.5 sm:gap-2 shrink-0 flex-wrap">
                       <button
                         onClick={() => navigate(`/exams/${e.id}/plan`)}
-                        className="bg-black text-white rounded-2xl px-4 py-2 text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-black/85"
+                        className="bg-black text-white rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold flex items-center justify-center gap-1 hover:bg-black/85"
                         data-testid={`open-plan-${e.id}`}
                       >
-                        <ListChecks size={14} weight="regular" /> Revision plan
+                        <ListChecks size={12} weight="regular" className="sm:size-[14]" /> Plan
                       </button>
                       {e.completed && e.debrief_session_id ? (
                         <button
                           onClick={() => navigate(`/chat/${e.debrief_session_id}`)}
-                          className="border border-black/15 rounded-2xl px-4 py-2 text-sm flex items-center justify-center gap-1.5 hover:bg-black/[0.04]"
+                          className="border border-black/15 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center justify-center gap-1 hover:bg-black/[0.04]"
                           data-testid={`open-debrief-${e.id}`}
                         >
-                          <ChatCircleText size={14} weight="regular" /> Open debrief
+                          <ChatCircleText size={12} weight="regular" className="sm:size-[14]" /> Debrief
                         </button>
                       ) : (
                         <button
                           onClick={() => handleDebrief(e)}
-                          className="border border-black/15 rounded-2xl px-4 py-2 text-sm flex items-center justify-center gap-1.5 hover:bg-black/[0.04]"
+                          className="border border-black/15 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center justify-center gap-1 hover:bg-black/[0.04]"
                           data-testid={`debrief-${e.id}`}
                         >
-                          <CheckCircle size={14} weight="regular" /> I've sat it
+                          <CheckCircle size={12} weight="regular" className="sm:size-[14]" /> Sat it
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(e.id, e.name)}
-                        className="border border-black/15 rounded-2xl px-4 py-2 text-sm flex items-center justify-center gap-1.5 hover:bg-black/[0.04] text-black/65"
+                        className="border border-black/15 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center justify-center gap-1 hover:bg-black/[0.04] text-black/65"
                         data-testid={`delete-exam-${e.id}`}
                       >
-                        <Trash size={14} weight="regular" /> Delete
+                        <Trash size={12} weight="regular" className="sm:size-[14]" /> Delete
                       </button>
                     </div>
                   </div>

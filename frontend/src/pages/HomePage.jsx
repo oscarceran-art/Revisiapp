@@ -31,8 +31,6 @@ export default function HomePage() {
     { to: "/exams", icon: CalendarBlank, title: "Exam countdowns", desc: "Track every exam date and get a day-by-day revision plan.", testid: "home-card-exams" },
   ];
 
-  const dueItems = review.items.filter(i => i.is_due).slice(0, 6);
-
   return (
     <div className="min-h-screen pt-20 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="home-page">
       <div className="max-w-5xl mx-auto">
@@ -40,7 +38,7 @@ export default function HomePage() {
           <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 flex items-center gap-2">
             <Sparkle size={12} weight="fill" /> welcome back
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl mt-3 leading-[1.05] font-extrabold">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl mt-2 sm:mt-3 leading-[1.05] font-extrabold">
             What would you like<br className="hidden sm:inline" />{" "}to revise today?
           </h1>
         </div>
@@ -91,7 +89,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           {cards.map(c => {
             const Icon = c.icon;
             return (
@@ -99,19 +97,19 @@ export default function HomePage() {
                 key={c.to}
                 onClick={() => navigate(c.to)}
                 data-testid={c.testid}
-                className="text-left bg-white border border-black/10 rounded-3xl p-5 sm:p-6 hover:border-black/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all active:scale-[0.99]"
+                className="text-left bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 hover:border-black/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all active:scale-[0.99]"
               >
-                <div className="w-11 h-11 rounded-2xl bg-black text-white flex items-center justify-center mb-4">
-                  <Icon size={20} weight="regular" />
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-black text-white flex items-center justify-center mb-2 sm:mb-4">
+                  <Icon size={16} weight="regular" className="sm:size-[20]" />
                 </div>
-                <div className="text-lg sm:text-xl font-extrabold mb-1.5">{c.title}</div>
-                <div className="text-xs sm:text-sm text-black/55 leading-relaxed">{c.desc}</div>
+                <div className="text-sm sm:text-xl font-extrabold mb-0.5 sm:mb-1.5">{c.title}</div>
+                <div className="text-[11px] sm:text-sm text-black/55 leading-relaxed">{c.desc}</div>
               </button>
             );
           })}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-8 sm:mt-12">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mt-6 sm:mt-12">
           {[
             { label: "Subjects", value: subjects.length, icon: BookBookmark },
             { label: "Chats", value: sessions.length, icon: ChatCircle },
@@ -120,12 +118,12 @@ export default function HomePage() {
           ].map(s => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="bg-white border border-black/10 rounded-3xl px-4 sm:px-6 py-4 sm:py-5 hover:border-black/25 transition-colors">
-                <div className="flex items-center justify-between mb-2">
+              <div key={s.label} className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl px-3 sm:px-6 py-3 sm:py-5 hover:border-black/25 transition-colors">
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
                   <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-black/40">{s.label}</div>
-                  <Icon size={14} weight="regular" className="text-black/25" />
+                  <Icon size={12} weight="regular" className="text-black/25 sm:size-[14]" />
                 </div>
-                <div className="text-3xl sm:text-4xl font-extrabold">{s.value}</div>
+                <div className="text-2xl sm:text-4xl font-extrabold">{s.value}</div>
               </div>
             );
           })}
