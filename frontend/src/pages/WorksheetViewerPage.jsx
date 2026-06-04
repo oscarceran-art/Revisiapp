@@ -326,7 +326,7 @@ export default function WorksheetViewerPage() {
             <button
               onClick={handleMark}
               disabled={marking}
-              className="btn-gradient-sweep rounded-2xl px-8 py-3.5 flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] font-semibold"
+               className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-8 py-3.5 flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] font-semibold hover:opacity-90 transition-opacity"
               data-testid="mark-worksheet-btn"
             >
               <ListChecks size={18} weight="regular" />

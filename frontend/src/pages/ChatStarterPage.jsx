@@ -68,7 +68,7 @@ export default function ChatStarterPage() {
 
         <div className="mb-8">
           <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">New chat</div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl mt-2 font-extrabold leading-tight">Who would you like to talk to?</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl mt-2 font-extrabold leading-tight"><span className="gradient-fade">Who</span> would you like to talk to?</h1>
         </div>
 
         {/* Mode picker */}

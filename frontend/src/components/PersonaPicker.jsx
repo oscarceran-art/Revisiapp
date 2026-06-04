@@ -71,7 +71,7 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="btn-gradient-sweep rounded-2xl px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
+          className="bg-black text-white rounded-2xl px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
           data-testid="open-create-persona-modal"
         >
           <Plus size={14} weight="bold" /> Create your own

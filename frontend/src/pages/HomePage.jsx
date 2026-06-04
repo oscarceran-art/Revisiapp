@@ -118,12 +118,12 @@ export default function HomePage() {
           ].map(s => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl px-3 sm:px-6 py-3 sm:py-5 hover:border-black/25 transition-colors">
+              <div key={s.label} className="group bg-white border border-black/10 rounded-2xl sm:rounded-3xl px-3 sm:px-6 py-3 sm:py-5 hover:border-black/25 transition-colors">
                 <div className="flex items-center justify-between mb-1 sm:mb-2">
                   <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-black/40">{s.label}</div>
                   <Icon size={12} weight="regular" className="text-black/25 sm:size-[14]" />
                 </div>
-                <div className="text-2xl sm:text-4xl font-extrabold">{s.value}</div>
+                <div className="text-2xl sm:text-4xl font-extrabold group-hover:bg-gradient-to-r group-hover:from-pink-400 group-hover:to-blue-500 group-hover:bg-clip-text group-hover:text-transparent transition-all duration-300">{s.value}</div>
               </div>
             );
           })}
