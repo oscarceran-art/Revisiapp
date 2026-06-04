@@ -184,8 +184,9 @@ export default function Layout() {
     ];
   }, [subjects, sessions, worksheets, notes]);
 
-  const sidebarWidth = collapsed ? "w-16" : "w-72";
+  const sidebarWidth = collapsed && !mobileOpen ? "w-16" : "w-72";
   const mainOffset = collapsed ? "md:ml-16" : "md:ml-72";
+  const showCollapsed = collapsed && !mobileOpen;
 
   return (
     <div className="min-h-screen text-black">
@@ -202,8 +203,8 @@ export default function Layout() {
         className={`fixed top-0 left-0 z-40 h-[100dvh] bg-white/95 backdrop-blur-sm border-r border-black/10 flex flex-col transition-all duration-200 ${sidebarWidth} ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 shadow-[2px_0_20px_rgba(0,0,0,0.03)]`}
         data-testid="sidebar"
       >
-        <div className={`flex items-center justify-between pt-5 pb-3 ${collapsed ? "px-3" : "px-5"}`}>
-          {!collapsed && (
+        <div className={`flex items-center justify-between pt-5 pb-3 ${showCollapsed ? "px-3" : "px-5"}`}>
+          {!showCollapsed && (
             <NavLink to="/" className="block hover:opacity-80 transition-opacity flex-1 min-w-0" data-testid="sidebar-brand">
               <div className="text-2xl font-extrabold text-black truncate">Revision AI</div>
             </NavLink>
@@ -218,7 +219,7 @@ export default function Layout() {
           </button>
         </div>
 
-        {collapsed ? (
+        {showCollapsed ? (
           <div className="flex-1 overflow-y-auto px-2 py-3 space-y-2 flex flex-col items-center">
             {[
               { to: "/", icon: ChatCircle, label: "Home" },
