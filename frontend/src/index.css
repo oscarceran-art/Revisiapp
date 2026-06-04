@@ -23,13 +23,21 @@ body {
     font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 14;
 }
 
-/* Gradient fade for keyword highlighting — black → pink → blue → black */
+/* Gradient fade for keyword highlighting — animated sweep: starts black, reveals gradient left→right */
 .gradient-fade {
-    background: linear-gradient(to right, #000 10%, #f472b6 40%, #3b82f6 65%, #000 85%);
+    background: linear-gradient(to right, #000 0%, #000 23%, #f472b6 40%, #3b82f6 57%, #000 74%, #000 100%);
+    background-size: 300% 100%;
+    background-position: 100% 0;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     display: inline;
+    animation: gradient-sweep 1.8s ease-out forwards;
+}
+
+@keyframes gradient-sweep {
+    0% { background-position: 100% 0; }
+    100% { background-position: 50% 0; }
 }
 
 /* Button: black → gradient → black sweep */

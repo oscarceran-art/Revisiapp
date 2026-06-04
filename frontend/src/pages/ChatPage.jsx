@@ -374,7 +374,7 @@ export default function ChatPage() {
                 {sessionPersonas.length > 1 ? `${sessionPersonas.map(p => p.name.split(" ").slice(-1)[0]).join(" & ")} are listening` :
                  sessionPersonas.length === 1 ? `Say hello to ${sessionPersonas[0].name}` :
                  activeSession?.mode === "feynman" ? "Teach me something" :
-                 "What shall we <span className=\"gradient-fade\">work</span> on?"}
+                 <>What shall we <span className="gradient-fade">work</span> on?</>}
               </h2>
               <p className="text-black/50 mt-3 max-w-md mx-auto text-sm sm:text-base">
                 {isGroup ? "Each personality replies in turn - you'll see them debating and building on each other." :
