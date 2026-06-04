@@ -110,7 +110,7 @@ export default function ExamsPage() {
           </div>
           <button
             onClick={() => setShowForm(s => !s)}
-            className="bg-black text-white rounded-2xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 hover:bg-black/85 transition-colors active:scale-[0.98]"
+            className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-opacity active:scale-[0.98]"
             data-testid="add-exam-toggle"
           >
             <Plus size={14} weight="bold" /> {showForm ? "Close" : "Add exam"}
@@ -179,7 +179,7 @@ export default function ExamsPage() {
               <button
                 onClick={handleCreate}
                 disabled={saving}
-                className="bg-black text-white rounded-2xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 hover:bg-black/85 disabled:opacity-50 active:scale-[0.98]"
+                className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 hover:opacity-90 disabled:opacity-50 active:scale-[0.98]"
                 data-testid="exam-save"
               >
                 <Sparkle size={14} weight="fill" /> {saving ? "Saving…" : "Save exam"}
@@ -220,7 +220,7 @@ export default function ExamsPage() {
                     <div className="flex sm:flex-col gap-1.5 sm:gap-2 shrink-0 flex-wrap">
                       <button
                         onClick={() => navigate(`/exams/${e.id}/plan`)}
-                        className="bg-black text-white rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold flex items-center justify-center gap-1 hover:bg-black/85"
+                        className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold flex items-center justify-center gap-1 hover:opacity-90"
                         data-testid={`open-plan-${e.id}`}
                       >
                         <ListChecks size={12} weight="regular" className="sm:size-[14]" /> Plan
@@ -279,7 +279,7 @@ export default function ExamsPage() {
                   ) : (
                     <button
                       onClick={() => handleDebrief(e)}
-                      className="bg-black text-white rounded-2xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 hover:bg-black/85"
+                      className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 hover:opacity-90"
                       data-testid={`debrief-past-${e.id}`}
                     >
                       <CheckCircle size={12} weight="regular" /> Reflect

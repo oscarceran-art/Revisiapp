@@ -122,7 +122,7 @@ export default function ChatStarterPage() {
         <button
           onClick={handleStart}
           disabled={starting || (mode === "group" && selected.length < 2)}
-          className="w-full sm:w-auto bg-black text-white rounded-2xl px-7 py-3.5 flex items-center justify-center gap-2 hover:bg-black/85 disabled:opacity-50 transition-colors active:scale-[0.98] text-base font-bold"
+          className="w-full sm:w-auto bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-7 py-3.5 flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity active:scale-[0.98] text-base font-bold"
           data-testid="start-chat-btn"
         >
           <Sparkle size={16} weight="fill" /> {starting ? "Starting…" : "Start chat"}

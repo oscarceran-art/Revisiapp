@@ -185,7 +185,7 @@ export default function WorksheetGeneratorPage() {
               <button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="w-full bg-black text-white rounded-2xl py-3.5 flex items-center justify-center gap-2 hover:bg-black/85 disabled:opacity-50 transition-colors active:scale-[0.98] font-semibold"
+                className="w-full bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl py-3.5 flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity active:scale-[0.98] font-semibold"
                 data-testid="generate-worksheet-btn"
               >
                 <Sparkle size={16} weight="fill" />
@@ -277,7 +277,7 @@ export default function WorksheetGeneratorPage() {
               <button
                 onClick={handleImport}
                 disabled={generating || !file}
-                className="w-full bg-black text-white rounded-2xl py-3.5 flex items-center justify-center gap-2 hover:bg-black/85 disabled:opacity-50 transition-colors active:scale-[0.98] font-semibold"
+                className="w-full bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl py-3.5 flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity active:scale-[0.98] font-semibold"
                 data-testid="import-pastpaper-btn"
               >
                 <UploadSimple size={16} weight="regular" />

@@ -131,7 +131,7 @@ export default function AdminPage() {
           <button onClick={load} className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-black/15 text-[13px] font-semibold hover:bg-black/[0.04] transition-colors">
             <ArrowClockwise size={14} weight="bold" /> Refresh
           </button>
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-black text-white text-[13px] font-semibold hover:bg-black/85 transition-colors">
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-pink-400 to-blue-500 text-white text-[13px] font-semibold hover:opacity-90 transition-opacity">
             <Plus size={14} weight="bold" /> Add user
           </button>
         </div>
@@ -155,7 +155,7 @@ export default function AdminPage() {
               onChange={e => setNewUser(n => ({ ...n, password: e.target.value }))}
               className="px-4 py-2.5 rounded-2xl text-[14px] border border-black/15 outline-none focus:border-black/40 bg-[#FAF8F5]"
             />
-            <button onClick={handleCreate} disabled={creating} className="px-4 py-2.5 rounded-2xl bg-black text-white text-[14px] font-semibold hover:bg-black/85 disabled:opacity-50">
+            <button onClick={handleCreate} disabled={creating} className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-pink-400 to-blue-500 text-white text-[14px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
               {creating ? "Creating…" : "Create"}
             </button>
             <button onClick={() => setShowCreate(false)} className="px-4 py-2.5 rounded-2xl border border-black/15 text-[14px] font-semibold hover:bg-black/[0.04]">

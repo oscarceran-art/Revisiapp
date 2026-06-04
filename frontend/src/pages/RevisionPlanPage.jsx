@@ -152,7 +152,7 @@ export default function RevisionPlanPage() {
             <button
               onClick={handleGenerate}
               disabled={generating}
-              className="mt-6 bg-black text-white rounded-2xl px-6 py-3 text-sm font-bold inline-flex items-center gap-2 hover:bg-black/85 disabled:opacity-50 active:scale-[0.98]"
+              className="mt-6 bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-6 py-3 text-sm font-bold inline-flex items-center gap-2 hover:opacity-90 disabled:opacity-50 active:scale-[0.98] transition-opacity"
               data-testid="generate-plan-btn"
             >
               <Sparkle size={14} weight="fill" /> {generating ? "Building plan…" : "Generate revision plan"}
@@ -174,7 +174,7 @@ export default function RevisionPlanPage() {
                 <button
                   onClick={prepareAll}
                   disabled={!!busyTask}
-                  className="bg-black text-white rounded-2xl px-4 py-2 text-sm font-bold flex items-center gap-1.5 hover:bg-black/85 disabled:opacity-50 active:scale-[0.98]"
+                  className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-4 py-2 text-sm font-bold flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 active:scale-[0.98] transition-opacity"
                   data-testid="prepare-all-btn"
                   title="Auto-generate every pending note and worksheet across the plan"
                 >

@@ -97,9 +97,9 @@ export default function HomePage() {
                 key={c.to}
                 onClick={() => navigate(c.to)}
                 data-testid={c.testid}
-                className="text-left bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 hover:border-black/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all active:scale-[0.99]"
+                className="text-left bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 hover:border-black/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all active:scale-[0.99] group"
               >
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-pink-400 to-blue-500 text-white flex items-center justify-center mb-2 sm:mb-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-black text-white group-hover:bg-gradient-to-br group-hover:from-pink-400 group-hover:to-blue-500 flex items-center justify-center mb-2 sm:mb-4 transition-all duration-300">
                   <Icon size={16} weight="regular" className="sm:size-[20]" />
                 </div>
                 <div className="text-sm sm:text-xl font-extrabold mb-0.5 sm:mb-1.5">{c.title}</div>

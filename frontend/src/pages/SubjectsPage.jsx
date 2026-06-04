@@ -102,7 +102,7 @@ export default function SubjectsPage() {
           <div>
             <button
               onClick={() => setShowNew(true)}
-              className="w-full bg-black text-white rounded-2xl py-2.5 px-4 flex items-center justify-center gap-2 hover:bg-black/85 transition-colors active:scale-[0.98] mb-3"
+              className="w-full bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl py-2.5 px-4 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity active:scale-[0.98] mb-3"
               data-testid="add-subject-btn"
             >
               <Plus size={16} weight="bold" /> New subject
@@ -120,7 +120,7 @@ export default function SubjectsPage() {
                   data-testid="new-subject-name"
                 />
                 <div className="flex gap-2 mt-2">
-                  <button onClick={handleCreate} className="text-sm bg-black text-white rounded-xl px-3 py-1.5" data-testid="confirm-subject-btn">Add</button>
+                  <button onClick={handleCreate} className="text-sm bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-xl px-3 py-1.5 hover:opacity-90 transition-opacity" data-testid="confirm-subject-btn">Add</button>
                   <button onClick={() => { setShowNew(false); setNewName(""); }} className="text-sm text-black/60 px-3 py-1.5">Cancel</button>
                 </div>
               </div>
@@ -165,7 +165,7 @@ export default function SubjectsPage() {
                     <button onClick={() => fileRef.current?.click()} className="border border-black/15 rounded-2xl px-3 py-2 text-sm flex items-center gap-2 hover:bg-black/[0.04]" data-testid="upload-notes-btn">
                       <UploadSimple size={16} weight="regular" /> Upload notes
                     </button>
-                    <button onClick={handleSave} disabled={saving} className="bg-black text-white rounded-2xl px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 active:scale-[0.98]" data-testid="save-subject-btn">
+                    <button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] hover:opacity-90 transition-opacity" data-testid="save-subject-btn">
                       <FloppyDisk size={16} weight="regular" /> {saving ? "Saving…" : "Save"}
                     </button>
                     <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-2" data-testid="delete-subject-btn" aria-label="Delete subject">

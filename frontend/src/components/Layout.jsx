@@ -205,7 +205,7 @@ export default function Layout() {
         <div className={`flex items-center justify-between pt-5 pb-3 ${collapsed ? "px-3" : "px-5"}`}>
           {!collapsed && (
             <NavLink to="/" className="block hover:opacity-80 transition-opacity flex-1 min-w-0" data-testid="sidebar-brand">
-              <div className="text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-blue-500 bg-clip-text text-transparent truncate">Revision AI</div>
+              <div className="text-2xl font-extrabold text-black truncate">Revision AI</div>
             </NavLink>
           )}
           <button

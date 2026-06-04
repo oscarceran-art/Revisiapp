@@ -208,7 +208,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-black text-white rounded-2xl px-5 py-3.5 text-[15px] font-bold flex items-center justify-center gap-2 hover:bg-black/85 active:scale-[0.98] transition-all disabled:opacity-60 mt-2"
+              className="w-full bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-5 py-3.5 text-[15px] font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 mt-2"
               style={{ fontFamily: "Nunito, sans-serif" }}
             >
               {loading ? (
