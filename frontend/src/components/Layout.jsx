@@ -90,12 +90,12 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
             return (
               <div
                 key={s.id} onClick={() => navigate(`/chat/${s.id}`)}
-                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-chat-${s.id}`}
               >
                 <ChatCircle size={13} weight="regular" className="shrink-0 opacity-70" />
                 <span className="truncate flex-1">{s.title || "Untitled"}</span>
-                <button onClick={(e) => handleDeleteChat(e, s)} className={`opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} data-testid={`delete-chat-${s.id}`} aria-label="Delete chat">
+                <button onClick={(e) => handleDeleteChat(e, s)} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} data-testid={`delete-chat-${s.id}`} aria-label="Delete chat">
                   <Trash size={12} weight="regular" />
                 </button>
               </div>
@@ -107,7 +107,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
             return (
               <div
                 key={w.id} onClick={() => navigate(`/worksheets/${w.id}`)}
-                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-worksheet-${w.id}`}
               >
                 <FileText size={13} weight="regular" className="shrink-0 opacity-70" />
@@ -117,7 +117,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
                     {Math.round(w.marking_result.percentage)}%
                   </span>
                 )}
-                <button onClick={(e) => handleDeleteWs(e, w)} className={`opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} data-testid={`delete-worksheet-${w.id}`} aria-label="Delete worksheet">
+                <button onClick={(e) => handleDeleteWs(e, w)} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} data-testid={`delete-worksheet-${w.id}`} aria-label="Delete worksheet">
                   <Trash size={12} weight="regular" />
                 </button>
               </div>
@@ -129,12 +129,12 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
             return (
               <div
                 key={n.id} onClick={() => navigate(`/notes/${n.id}`)}
-                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-note-${n.id}`}
               >
                 <Notebook size={13} weight="regular" className="shrink-0 opacity-70" />
                 <span className="truncate flex-1">{n.title}</span>
-                <button onClick={(e) => handleDeleteNote(e, n)} className={`opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} data-testid={`delete-note-${n.id}`} aria-label="Delete notes">
+                <button onClick={(e) => handleDeleteNote(e, n)} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} data-testid={`delete-note-${n.id}`} aria-label="Delete notes">
                   <Trash size={12} weight="regular" />
                 </button>
               </div>
@@ -283,19 +283,19 @@ export default function Layout() {
               <NavLink
                 to="/exams"
                 data-testid="sidebar-exams-link"
-                className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
-                }
-              >
-                <CalendarBlank size={16} weight="regular" />
-                <span className="text-[14px] font-semibold">Exams & countdowns</span>
-              </NavLink>
-              <NavLink
-                to="/subjects"
-                data-testid="sidebar-manage-subjects"
-                className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
-                }
+                 className={({ isActive }) =>
+                   `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                 }
+               >
+                 <CalendarBlank size={16} weight="regular" />
+                 <span className="text-[14px] font-semibold">Exams & countdowns</span>
+               </NavLink>
+               <NavLink
+                 to="/subjects"
+                 data-testid="sidebar-manage-subjects"
+                 className={({ isActive }) =>
+                   `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                 }
               >
                 <BookBookmark size={16} weight="regular" />
                 <span className="text-[14px] font-semibold">Manage subjects</span>
@@ -306,9 +306,9 @@ export default function Layout() {
                 <NavLink
                   to="/admin"
                   data-testid="sidebar-admin-link"
-                  className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mt-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
-                  }
+                   className={({ isActive }) =>
+                     `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mt-1 ${isActive ? "bg-gradient-to-r from-black via-pink-400 to-blue-500 text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                   }
                 >
                   <ShieldCheck size={16} weight="regular" />
                   <span className="text-[14px] font-semibold">Admin</span>

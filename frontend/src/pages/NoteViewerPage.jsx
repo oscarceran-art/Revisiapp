@@ -87,8 +87,8 @@ export default function NoteViewerPage() {
               <div className="flex flex-wrap gap-2">
                 {note.key_terms.map((t, i) => (
                   <div key={i} className="group relative">
-                    <span className="inline-block bg-black text-white text-[13px] font-bold px-3 py-1.5 rounded-full cursor-default">{t.term}</span>
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-black text-white text-[13px] p-3 rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none z-10 shadow-lg">
+                    <span tabIndex={0} className="inline-block bg-black text-white text-[13px] font-bold px-3 py-1.5 rounded-full cursor-default outline-none focus:ring-2 focus:ring-pink-400/50">{t.term}</span>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-black text-white text-[13px] p-3 rounded-2xl opacity-0 invisible group-hover:opacity-100 group-focus-within:opacity-100 group-hover:visible group-focus-within:visible transition-all pointer-events-none z-10 shadow-lg">
                       {t.definition}
                       <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-black" />
                     </div>

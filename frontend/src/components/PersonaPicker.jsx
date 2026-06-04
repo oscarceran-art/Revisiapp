@@ -112,7 +112,7 @@ export default function PersonaPicker({ personas, selectedIds, onChange, multi =
               {isCustom && (
                 <button
                   onClick={(e) => handleDeleteCustom(e, p.id)}
-                  className={`absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md ${isSel ? "hover:bg-white/15" : "hover:bg-black/10"}`}
+                  className={`absolute bottom-2 right-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md ${isSel ? "hover:bg-white/15" : "hover:bg-black/10"}`}
                   aria-label="Delete custom persona"
                 >
                   <Trash size={11} weight="regular" />

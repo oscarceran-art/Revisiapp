@@ -248,7 +248,13 @@ export default function ChatPage() {
     };
     rec.onerror = (e) => {
       if (e.error && e.error !== "no-speech" && e.error !== "aborted") {
-        toast.error(`Voice error: ${e.error}`);
+        if (e.error === "service-not-allowed") {
+          toast.error("Microphone access denied. Check your browser's mic permissions (camera/mic icon in the address bar) and ensure you're using HTTPS.");
+        } else if (e.error === "not-allowed") {
+          toast.error("Microphone permission was denied. Please allow microphone access and try again.");
+        } else {
+          toast.error(`Voice error: ${e.error}`);
+        }
       }
       setListening(false);
     };
@@ -356,7 +362,7 @@ export default function ChatPage() {
   const containerWidth = collapsed ? "max-w-5xl" : "max-w-3xl";
 
   return (
-    <div className="flex flex-col h-screen font-fraunces" data-testid="chat-page">
+    <div className="flex flex-col h-[100dvh] font-fraunces" data-testid="chat-page">
       {renderHeader()}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-10 py-4 sm:py-8 scroll-smooth" data-testid="chat-messages">

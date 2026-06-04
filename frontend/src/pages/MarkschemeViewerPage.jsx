@@ -13,7 +13,7 @@ export default function MarkschemeViewerPage() {
   if (!ws) return <div className="min-h-screen flex items-center justify-center text-black/40">Loading…</div>;
 
   return (
-    <div className="min-h-screen pt-20 md:pt-12 px-6 md:px-14 pb-16" data-testid="markscheme-page">
+    <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-14 pb-16" data-testid="markscheme-page">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6">
           <button onClick={() => navigate(`/worksheets/${id}`)} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 font-semibold">
@@ -50,6 +50,8 @@ export default function MarkschemeViewerPage() {
               they obscure meaning.
             </p>
 
+            <div className="overflow-x-auto -mx-10 md:-mx-14 px-10 md:px-14">
+            <div className="min-w-[400px]">
             <div className="grid grid-cols-[60px_1fr_60px] gap-x-4 pb-3 border-b-2 border-black mb-4">
               <div className="text-[11px] uppercase tracking-[0.22em] text-black/60 font-bold">Q</div>
               <div className="text-[11px] uppercase tracking-[0.22em] text-black/60 font-bold">Indicative answer & marking guidance</div>
@@ -90,6 +92,8 @@ export default function MarkschemeViewerPage() {
                   </div>
                 </div>
               ))}
+            </div>
+            </div>
             </div>
 
             <div className="mt-10 pt-6 border-t-2 border-black flex items-center justify-between">
