@@ -4,7 +4,7 @@ import { ArrowLeft, Sparkle, NotePencil, Image, Stack } from "@phosphor-icons/re
 import { toast } from "sonner";
 import { useSidebarData } from "@/context/SidebarContext";
 import ModelSelector from "@/components/ModelSelector";
-import { workspaceGenerateText, workspaceGenerateDiagram, workspaceCheckRecall } from "@/lib/api";
+import { workspaceGenerateText, workspaceGenerateDiagram, workspaceCheckRecall, workspaceCheckDiagram } from "@/lib/api";
 
 const IMAGE_MODELS = {
   "gpt-image-1-mini": { label: "GPT Image 1 Mini", desc: "Fastest, lowest cost" },
@@ -45,6 +45,9 @@ export default function RevisionWorkspacePage() {
 
   // Diagram recall state
   const [diagramExercise, setDiagramExercise] = useState(null);
+  const [diagramLabels, setDiagramLabels] = useState({});
+  const [diagramFeedback, setDiagramFeedback] = useState(null);
+  const [diagramMarking, setDiagramMarking] = useState(false);
 
   // Load exercise from sidebar click
   useEffect(() => {
@@ -62,6 +65,12 @@ export default function RevisionWorkspacePage() {
     } else if (ex.image_url) {
       setMode("diagram");
       setDiagramExercise(ex);
+      const labels = ex.labels || [];
+      const labelMap = {};
+      labels.forEach(l => { labelMap[l.label] = ""; });
+      setDiagramLabels(labelMap);
+      if (ex.student_labels) setDiagramLabels(ex.student_labels);
+      if (ex.feedback) setDiagramFeedback(ex.feedback);
     }
   }, []);
 
@@ -80,12 +89,30 @@ export default function RevisionWorkspacePage() {
       if (mode === "diagram" || mode === "mixed") {
         const res = await workspaceGenerateDiagram({ subject_id: subjectId || null, topic: topic.trim(), image_model: imageModel, quality: imageQuality, size: imageSize });
         setDiagramExercise(res.exercise);
+        const labels = res.exercise.labels || [];
+        const labelMap = {};
+        labels.forEach(l => { labelMap[l.label] = ""; });
+        setDiagramLabels(labelMap);
       }
       toast.success("Content generated!");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Generation failed");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleCheckDiagram = async () => {
+    if (!diagramExercise) return;
+    setDiagramMarking(true);
+    try {
+      const res = await workspaceCheckDiagram({ exercise_id: diagramExercise.id, labels: diagramLabels });
+      setDiagramFeedback(res);
+      toast.success("Diagram checked!");
+    } catch {
+      toast.error("Failed to check diagram");
+    } finally {
+      setDiagramMarking(false);
     }
   };
 
@@ -109,7 +136,9 @@ export default function RevisionWorkspacePage() {
     setDiagramExercise(null);
     setKeyPoints([]);
     setFeedback(null);
+    setDiagramFeedback(null);
     setRecall("");
+    setDiagramLabels({});
     setContentHidden(false);
     setTopic("");
   };
@@ -313,9 +342,62 @@ export default function RevisionWorkspacePage() {
                 <div className="space-y-4">
                   <div className="bg-white border border-black/10 rounded-3xl overflow-hidden">
                     {diagramExercise.image_url && (
-                      <img src={diagramExercise.image_url} alt={topic} className="w-full object-contain max-h-[400px]" />
+                      <img src={diagramExercise.image_url} alt={topic} className="w-full object-contain max-h-[400px] border-b border-black/10" />
                     )}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] uppercase tracking-[0.22em] text-black/45">Label the structures</span>
+                        <button onClick={handleCheckDiagram} disabled={diagramMarking}
+                          className="bg-black text-white rounded-full px-4 py-1.5 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98]">
+                          <Sparkle size={12} weight="fill" />
+                          {diagramMarking ? "Checking..." : "Check labels"}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(diagramExercise.labels || []).map(lbl => (
+                          <div key={lbl.label} className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-black/60 min-w-[90px]">{lbl.label}:</span>
+                            <input
+                              value={diagramLabels[lbl.label] || ""}
+                              onChange={e => setDiagramLabels(prev => ({ ...prev, [lbl.label]: e.target.value }))}
+                              placeholder="?"
+                              className="flex-1 border border-black/15 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-black"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
+
+                  {diagramFeedback && (
+                    <div className="bg-white border border-black/10 rounded-3xl p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] uppercase tracking-[0.22em] text-black/45">Diagram Feedback</span>
+                        <span className="text-2xl font-extrabold">{diagramFeedback.score}%</span>
+                      </div>
+                      <div className="text-xs text-black/50">{diagramFeedback.correct}/{diagramFeedback.total} correct</div>
+                      {Object.keys(diagramFeedback.incorrect_labels || {}).length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.22em] text-red-500 mb-1">Incorrect</div>
+                          {Object.entries(diagramFeedback.incorrect_labels).map(([label, data]) => (
+                            <div key={label} className="flex items-center gap-2 text-xs mb-1">
+                              <span className="font-bold">{label}:</span>
+                              <span className="text-red-500 line-through">{data.student}</span>
+                              <span className="text-green-600">→ {data.expected}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {diagramFeedback.missing_labels?.length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.22em] text-amber-600 mb-1">Missing</div>
+                          <ul className="list-disc list-inside text-xs text-amber-700 space-y-0.5">
+                            {diagramFeedback.missing_labels.map((l, i) => <li key={i}>{l}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

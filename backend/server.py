@@ -2796,6 +2796,18 @@ async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization
     user = await auth_module.get_current_user(authorization)
     subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
 
+    # Identify the key structures shown in the diagram
+    label_prompt = f"""Given the diagram topic "{req.topic}", list the 4-8 key structures a student should identify.
+Return ONLY valid JSON as an array of objects:
+[{{"label": "Structure name", "expected": "correct label"}}, ...]
+Output MUST be valid parseable JSON."""
+    try:
+        resp = await ai_complete("You are a biology/chemistry/physics diagram expert.", [{"role": "user", "content": label_prompt}], 2000)
+        labels_raw = ai_text(resp)
+        labels = json.loads(re.sub(r'^```(?:json)?\s*|\s*```$', '', labels_raw.strip()))
+    except Exception:
+        labels = []
+
     prompt = f"Generate a clear educational diagram of {req.topic} to help a student visualize and understand the topic. Clean white background, clean lines, use colour to distinguish structures. Do not include any labels or numbers — just the diagram itself."
     if subject:
         prompt += f" Subject: {subject['name']}."
@@ -2814,7 +2826,7 @@ async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization
         topic=req.topic,
         image_url=image_url,
         image_model=req.image_model or DEFAULT_IMAGE_MODEL,
-        labels=[],
+        labels=labels,
     )
     doc = serialize_doc(exercise.model_dump())
     doc["user_id"] = user["id"]
@@ -2870,21 +2882,19 @@ async def workspace_check_diagram(req: CheckDiagramRequest, authorization: Optio
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercise not found")
 
-    expected = {lbl.get("id"): lbl.get("expected", "") for lbl in (exercise.get("labels") or [])}
+    expected = {lbl.get("label"): lbl.get("expected", "") for lbl in (exercise.get("labels") or [])}
     correct = {}
     incorrect = {}
     missing = []
     for lid, expected_answer in expected.items():
         student_answer = req.labels.get(lid, "").strip()
         if not student_answer:
-            label_name = next((l.get("label", lid) for l in (exercise.get("labels") or []) if l.get("id") == lid), lid)
-            missing.append(label_name)
+            missing.append(lid)
             continue
         if student_answer.lower() == expected_answer.lower():
             correct[lid] = student_answer
         else:
-            label_name = next((l.get("label", lid) for l in (exercise.get("labels") or []) if l.get("id") == lid), lid)
-            incorrect[label_name] = {"student": student_answer, "expected": expected_answer}
+            incorrect[lid] = {"student": student_answer, "expected": expected_answer}
 
     total = len(expected)
     correct_count = len(correct)
