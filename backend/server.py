@@ -148,11 +148,12 @@ async def ai_image(prompt: str, model: Optional[str] = None) -> str:
         "prompt": prompt,
         "n": 1,
         "size": cfg["size"],
-        "response_format": "b64_json",
     }
     if cfg.get("quality"):
         kwargs["quality"] = cfg["quality"]
     resp = await openai_client.images.generate(**kwargs)
+    if resp.data and resp.data[0].url:
+        return resp.data[0].url
     if resp.data and resp.data[0].b64_json:
         return f"data:image/png;base64,{resp.data[0].b64_json}"
     return ""

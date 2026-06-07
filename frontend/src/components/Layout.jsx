@@ -227,7 +227,8 @@ export default function Layout() {
               { to: "/worksheets/new", icon: FileText, label: "New sheet" },
               { to: "/notes/new", icon: Notebook, label: "New notes" },
               { to: "/exams", icon: CalendarBlank, label: "Exams" },
-              { to: "/tools", icon: SquaresFour, label: "Tools" },
+              { to: "/workspace", icon: Stack, label: "Workspace" },
+              { to: "/tools", icon: SquaresFour, label: "All tools" },
               { to: "/subjects", icon: BookBookmark, label: "Subjects" },
             ].map(it => {
               const Icon = it.icon;
@@ -292,6 +293,16 @@ export default function Layout() {
                   <span className="text-[14px] font-semibold">Exams & countdowns</span>
                 </NavLink>
                 <NavLink
+                  to="/workspace"
+                  data-testid="sidebar-workspace-link"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                  }
+                >
+                  <Stack size={16} weight="regular" />
+                  <span className="text-[14px] font-semibold">Workspace</span>
+                </NavLink>
+                <NavLink
                   to="/tools"
                   data-testid="sidebar-tools-link"
                   className={({ isActive }) =>
@@ -299,7 +310,7 @@ export default function Layout() {
                   }
                 >
                   <SquaresFour size={16} weight="regular" />
-                  <span className="text-[14px] font-semibold">Tools</span>
+                  <span className="text-[14px] font-semibold">All tools</span>
                 </NavLink>
                 <NavLink
                  to="/subjects"
