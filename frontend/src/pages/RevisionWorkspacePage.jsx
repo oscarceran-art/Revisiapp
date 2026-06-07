@@ -1,10 +1,9 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Sparkle, NotePencil, Image, Stack } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useSidebarData } from "@/context/SidebarContext";
 import ModelSelector from "@/components/ModelSelector";
-import WhiteboardCanvas from "@/components/WhiteboardCanvas";
 import { workspaceGenerateText, workspaceGenerateDiagram, workspaceCheckRecall, workspaceCheckDiagram } from "@/lib/api";
 
 const IMAGE_MODELS = {
@@ -46,7 +45,6 @@ export default function RevisionWorkspacePage() {
   const [diagramLabels, setDiagramLabels] = useState({});
   const [diagramFeedback, setDiagramFeedback] = useState(null);
   const [diagramMarking, setDiagramMarking] = useState(false);
-  const canvasRef = useRef(null);
 
   const handleGenerate = async () => {
     if (!topic.trim()) { toast.error("Enter a topic"); return; }
@@ -307,10 +305,11 @@ export default function RevisionWorkspacePage() {
                           {diagramMarking ? "Checking..." : "Check diagram"}
                         </button>
                       </div>
+                      <div className="text-xs text-black/50 mb-3">Write the correct label for each number:</div>
                       <div className="grid grid-cols-2 gap-2">
                         {(diagramExercise.labels || []).map(lbl => (
                           <div key={lbl.id} className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-black/60 min-w-[80px]">{lbl.label}:</span>
+                            <span className="text-xs font-bold text-black/60 min-w-[20px] w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">{lbl.id}</span>
                             <input
                               value={diagramLabels[lbl.id] || ""}
                               onChange={e => setDiagramLabels(prev => ({ ...prev, [lbl.id]: e.target.value }))}
@@ -321,11 +320,6 @@ export default function RevisionWorkspacePage() {
                         ))}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Whiteboard canvas for drawing */}
-                  <div className="bg-white border border-black/10 rounded-3xl overflow-hidden" style={{ height: "500px" }}>
-                    <WhiteboardCanvas onCanvasRef={ref => { canvasRef.current = ref; }} />
                   </div>
 
                   {diagramFeedback && (

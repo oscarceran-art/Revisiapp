@@ -2790,7 +2790,7 @@ async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization
     user = await auth_module.get_current_user(authorization)
     subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
 
-    prompt = f"Generate a clear educational diagram of {req.topic}. Use labels, clean lines, and a white background. Make it suitable for a student to study from and then reproduce from memory."
+    prompt = f"Generate a clear educational diagram of {req.topic} with numbered labels (1, 2, 3...) pointing to each key structure. Clean white background. No text labels — use numbers only. Suitable for a student to label from memory."
     if subject:
         prompt += f" Subject: {subject['name']}."
 
@@ -2910,6 +2910,42 @@ async def workspace_check_diagram(req: CheckDiagramRequest, authorization: Optio
         {"$set": {"student_labels": req.labels, "feedback": feedback}}
     )
     return feedback
+
+
+# List all blurting exercises for current user
+@api_router.get("/workspace/blurting")
+async def workspace_list_blurting(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    docs = await db.blurting_exercises.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(None)
+    return docs
+
+
+# List all diagram exercises for current user
+@api_router.get("/workspace/diagrams")
+async def workspace_list_diagrams(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    docs = await db.diagram_exercises.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(None)
+    return docs
+
+
+# Delete a blurting exercise
+@api_router.delete("/workspace/blurting/{exercise_id}")
+async def workspace_delete_blurting(exercise_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    result = await db.blurting_exercises.delete_one({"id": exercise_id, "user_id": user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    return {"ok": True}
+
+
+# Delete a diagram exercise
+@api_router.delete("/workspace/diagrams/{exercise_id}")
+async def workspace_delete_diagram(exercise_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    result = await db.diagram_exercises.delete_one({"id": exercise_id, "user_id": user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    return {"ok": True}
 
 
 # ---------- MOUNT ROUTER + MIDDLEWARE ----------

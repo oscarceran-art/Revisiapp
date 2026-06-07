@@ -177,3 +177,7 @@ export const workspaceGenerateText = (data) => api.post("/workspace/generate-tex
 export const workspaceGenerateDiagram = (data) => api.post("/workspace/generate-diagram", data).then(r => r.data);
 export const workspaceCheckRecall = (data) => api.post("/workspace/check-recall", data).then(r => r.data);
 export const workspaceCheckDiagram = (data) => api.post("/workspace/check-diagram", data).then(r => r.data);
+export const listBlurtingExercises = () => api.get("/workspace/blurting").then(r => r.data);
+export const listDiagramExercises = () => api.get("/workspace/diagrams").then(r => r.data);
+export const deleteBlurtingExercise = (id) => api.delete(`/workspace/blurting/${id}`).then(r => r.data);
+export const deleteDiagramExercise = (id) => api.delete(`/workspace/diagrams/${id}`).then(r => r.data);

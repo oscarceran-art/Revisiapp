@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { listSubjects, listSessions, listWorksheets, listNotes, listPersonas, listExams } from "@/lib/api";
+import { listSubjects, listSessions, listWorksheets, listNotes, listPersonas, listExams, listBlurtingExercises, listDiagramExercises } from "@/lib/api";
 
 const SidebarContext = createContext(null);
 
@@ -10,6 +10,8 @@ export function SidebarProvider({ children }) {
   const [notes, setNotes] = useState([]);
   const [exams, setExams] = useState([]);
   const [personas, setPersonas] = useState([]);
+  const [blurtingExercises, setBlurtingExercises] = useState([]);
+  const [diagramExercises, setDiagramExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("sidebarCollapsed") === "1"; } catch { return false; }
@@ -25,14 +27,17 @@ export function SidebarProvider({ children }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [s, sess, w, n, ex] = await Promise.all([
+      const [s, sess, w, n, ex, bl, di] = await Promise.all([
         listSubjects().catch(() => []),
         listSessions().catch(() => []),
         listWorksheets().catch(() => []),
         listNotes().catch(() => []),
         listExams().catch(() => []),
+        listBlurtingExercises().catch(() => []),
+        listDiagramExercises().catch(() => []),
       ]);
       setSubjects(s); setSessions(sess); setWorksheets(w); setNotes(n); setExams(ex);
+      setBlurtingExercises(bl); setDiagramExercises(di);
     } finally {
       setLoading(false);
     }
@@ -46,7 +51,9 @@ export function SidebarProvider({ children }) {
   return (
     <SidebarContext.Provider value={{
       subjects, sessions, worksheets, notes, exams, personas, loading,
+      blurtingExercises, diagramExercises,
       refresh, setSubjects, setSessions, setWorksheets, setNotes, setExams,
+      setBlurtingExercises, setDiagramExercises,
       collapsed, toggleCollapsed,
     }}>
       {children}

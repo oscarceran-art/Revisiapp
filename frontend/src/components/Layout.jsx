@@ -1,22 +1,22 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, SquaresFour } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, Cards, Image } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
 import { useTimer } from "@/context/TimerContext";
 import { useAuth } from "@/context/AuthContext";
-import { deleteSession, deleteWorksheet, deleteNote } from "@/lib/api";
+import { deleteSession, deleteWorksheet, deleteNote, deleteBlurtingExercise, deleteDiagramExercise } from "@/lib/api";
 import { toast } from "sonner";
 import SearchBar from "@/components/SearchBar";
 import useExamReminders from "@/hooks/useExamReminders";
 
-function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
+function SubjectGroup({ subject, sessions, worksheets, notes, blurtingExercises, diagramExercises, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
   const navigate = useNavigate();
   const location = useLocation();
   const { refresh } = useSidebarData();
   const name = subject ? subject.name : "General";
   const groupId = subject ? subject.id : "general";
-  const total = sessions.length + worksheets.length + notes.length;
+  const total = sessions.length + worksheets.length + notes.length + blurtingExercises.length + diagramExercises.length;
 
   const handleDeleteChat = async (e, s) => {
     e.stopPropagation();
@@ -47,6 +47,25 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
       toast.success("Notes deleted");
       if (location.pathname === `/notes/${n.id}`) navigate("/");
     } catch { toast.error("Couldn't delete notes"); }
+  };
+
+  const handleDeleteBlurt = async (e, ex) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete blurting exercise "${ex.topic}"?`)) return;
+    try {
+      await deleteBlurtingExercise(ex.id);
+      await refresh();
+      toast.success("Blurting exercise deleted");
+    } catch { toast.error("Couldn't delete exercise"); }
+  };
+  const handleDeleteDiagram = async (e, ex) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete diagram exercise "${ex.topic}"?`)) return;
+    try {
+      await deleteDiagramExercise(ex.id);
+      await refresh();
+      toast.success("Diagram exercise deleted");
+    } catch { toast.error("Couldn't delete exercise"); }
   };
 
   return (
@@ -140,6 +159,40 @@ function SubjectGroup({ subject, sessions, worksheets, notes, defaultOpen }) {
               </div>
             );
           })}
+
+          {blurtingExercises.map(ex => {
+            const isActive = false;
+            return (
+              <div
+                key={ex.id} onClick={() => navigate("/workspace")}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                data-testid={`sidebar-blurt-${ex.id}`}
+              >
+                <Stack size={13} weight="regular" className="shrink-0 opacity-70" />
+                <span className="truncate flex-1">{ex.topic}</span>
+                <button onClick={(e) => handleDeleteBlurt(e, ex)} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} aria-label="Delete blurting exercise">
+                  <Trash size={12} weight="regular" />
+                </button>
+              </div>
+            );
+          })}
+
+          {diagramExercises.map(ex => {
+            const isActive = false;
+            return (
+              <div
+                key={ex.id} onClick={() => navigate("/workspace")}
+                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
+                data-testid={`sidebar-diagram-${ex.id}`}
+              >
+                <Image size={13} weight="regular" className="shrink-0 opacity-70" />
+                <span className="truncate flex-1">{ex.topic}</span>
+                <button onClick={(e) => handleDeleteDiagram(e, ex)} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} aria-label="Delete diagram exercise">
+                  <Trash size={12} weight="regular" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -151,7 +204,7 @@ export default function Layout() {
   const [notifPerm, setNotifPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const location = useLocation();
   const navigate = useNavigate();
-  const { subjects, sessions, worksheets, notes, collapsed, toggleCollapsed } = useSidebarData();
+  const { subjects, sessions, worksheets, notes, blurtingExercises, diagramExercises, collapsed, toggleCollapsed } = useSidebarData();
   const { state: timerState, setOpen: setTimerOpen } = useTimer();
   const { user, logout } = useAuth();
   useExamReminders();
@@ -177,12 +230,14 @@ export default function Layout() {
       sessions: sessions.filter(s => (s.subject_id || null) === id),
       worksheets: worksheets.filter(w => (w.subject_id || null) === id),
       notes: notes.filter(n => (n.subject_id || null) === id),
+      blurtingExercises: blurtingExercises.filter(ex => (ex.subject_id || null) === id),
+      diagramExercises: diagramExercises.filter(ex => (ex.subject_id || null) === id),
     });
     return [
       { subject: null, ...byId(null) },
       ...subjects.map(s => ({ subject: s, ...byId(s.id) })),
     ];
-  }, [subjects, sessions, worksheets, notes]);
+  }, [subjects, sessions, worksheets, notes, blurtingExercises, diagramExercises]);
 
   const sidebarWidth = collapsed && !mobileOpen ? "w-16" : "w-72";
   const mainOffset = collapsed ? "md:ml-16" : "md:ml-72";
@@ -228,7 +283,7 @@ export default function Layout() {
               { to: "/notes/new", icon: Notebook, label: "New notes" },
               { to: "/exams", icon: CalendarBlank, label: "Exams" },
               { to: "/workspace", icon: Stack, label: "Workspace" },
-              { to: "/tools", icon: SquaresFour, label: "All tools" },
+              { to: "/flashcards", icon: Cards, label: "Flashcards" },
               { to: "/subjects", icon: BookBookmark, label: "Subjects" },
             ].map(it => {
               const Icon = it.icon;
@@ -276,6 +331,8 @@ export default function Layout() {
                   sessions={g.sessions}
                   worksheets={g.worksheets}
                   notes={g.notes}
+                  blurtingExercises={g.blurtingExercises}
+                  diagramExercises={g.diagramExercises}
                   defaultOpen={false}
                 />
               ))}
@@ -303,14 +360,14 @@ export default function Layout() {
                   <span className="text-[14px] font-semibold">Workspace</span>
                 </NavLink>
                 <NavLink
-                  to="/tools"
-                  data-testid="sidebar-tools-link"
+                  to="/flashcards"
+                  data-testid="sidebar-flashcards-link"
                   className={({ isActive }) =>
                     `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
                   }
                 >
-                  <SquaresFour size={16} weight="regular" />
-                  <span className="text-[14px] font-semibold">All tools</span>
+                  <Cards size={16} weight="regular" />
+                  <span className="text-[14px] font-semibold">Flashcards</span>
                 </NavLink>
                 <NavLink
                  to="/subjects"
