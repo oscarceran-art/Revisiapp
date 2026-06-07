@@ -31,7 +31,7 @@ export default function RevisionWorkspacePage() {
   const [topic, setTopic] = useState("");
   const [textModel, setTextModel] = useState(null);
   const [imageModel, setImageModel] = useState("gpt-image-1");
-  const [imageQuality, setImageQuality] = useState("standard");
+  const [imageQuality, setImageQuality] = useState("auto");
   const [generating, setGenerating] = useState(false);
 
   // Text recall state
@@ -188,8 +188,10 @@ export default function RevisionWorkspacePage() {
                   <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Quality</label>
                   <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}
                     className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
-                    <option value="standard">Standard — faster, lower cost</option>
-                    <option value="hd">HD — finer detail, higher cost</option>
+                    <option value="auto">Auto</option>
+                    <option value="low">Low — fastest</option>
+                    <option value="medium">Medium — balanced</option>
+                    <option value="high">High — best quality</option>
                   </select>
                 </div>
               </div>

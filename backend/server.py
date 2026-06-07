@@ -97,7 +97,7 @@ IMAGE_MODELS = {
         "label": "GPT Image 2",
         "description": "Best quality for detailed educational diagrams, higher cost.",
         "api_model": "gpt-image-2",
-        "quality": "hd",
+        "quality": "high",
         "size": "1024x1024",
     },
 }
