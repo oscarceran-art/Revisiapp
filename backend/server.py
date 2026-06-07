@@ -211,6 +211,7 @@ class WorksheetRequest(BaseModel):
     difficulty: Literal["easy", "medium", "hard", "mixed"] = "medium"
     question_type: Literal["multiple_choice", "short_answer", "long_answer", "mixed"] = "mixed"
     extra_instructions: Optional[str] = ""
+    model: Optional[str] = None
 
 
 class WorksheetQuestion(BaseModel):
@@ -853,7 +854,7 @@ async def generate_worksheet(req: WorksheetRequest, authorization: Optional[str]
 
     prompt = build_worksheet_prompt(req, subject)
     try:
-        response = await ai_complete(WORKSHEET_SYSTEM, [{"role": "user", "content": prompt}], 4096)
+        response = await ai_complete(WORKSHEET_SYSTEM, [{"role": "user", "content": prompt}], 4096, model=req.model)
         raw = ai_text(response)
         await _charge_tokens(user, response, estimated_tokens)
     except HTTPException:
@@ -1455,6 +1456,7 @@ class StudyNoteRequest(BaseModel):
     subject_id: Optional[str] = None
     topic: str
     depth: Literal["overview", "standard", "deep"] = "standard"
+    model: Optional[str] = None
 
 
 @api_router.post("/notes/generate", response_model=StudyNote)
@@ -1492,6 +1494,7 @@ async def generate_notes(req: StudyNoteRequest, authorization: Optional[str] = H
             "You are an expert teacher and study-notes author. Return ONLY valid JSON, no prose, no code fences. Output MUST be valid parseable JSON.",
             [{"role": "user", "content": prompt}],
             max_tokens_map[req.depth],
+            model=req.model,
         )
         raw = ai_text(resp)
     except Exception as e:
@@ -2529,7 +2532,7 @@ async def delete_card(card_id: str, authorization: Optional[str] = Header(None))
 
 # AI generate flashcards from a topic
 @api_router.post("/flashcards/decks/{deck_id}/generate")
-async def generate_cards(deck_id: str, topic: str = Form(...), count: int = Form(10), authorization: Optional[str] = Header(None)):
+async def generate_cards(deck_id: str, topic: str = Form(...), count: int = Form(10), model: Optional[str] = Form(None), authorization: Optional[str] = Header(None)):
     user = await auth_module.get_current_user(authorization)
     deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
     if not deck:
@@ -2540,7 +2543,7 @@ Each card has a "front" (question/term) and "back" (answer/definition).
 Return ONLY valid JSON as an array of objects with "front" and "back" keys.
 Make them varied — some factual, some conceptual, some application-based.
 Keep fronts concise (under 15 words). Keep backs clear but complete."""
-    resp = await ai_complete("You are a strict JSON generator.", [{"role": "user", "content": prompt}], 4000)
+    resp = await ai_complete("You are a strict JSON generator.", [{"role": "user", "content": prompt}], 4000, model=model)
     text = ai_text(resp)
     text = re.sub(r'^```(?:json)?\s*', '', text.strip())
     text = re.sub(r'\s*```$', '', text)
@@ -2562,7 +2565,7 @@ Keep fronts concise (under 15 words). Keep backs clear but complete."""
 
 # Generate flashcards from a study note
 @api_router.post("/flashcards/decks/{deck_id}/generate-from-notes/{note_id}")
-async def generate_from_notes(deck_id: str, note_id: str, authorization: Optional[str] = Header(None)):
+async def generate_from_notes(deck_id: str, note_id: str, model: Optional[str] = Form(None), authorization: Optional[str] = Header(None)):
     user = await auth_module.get_current_user(authorization)
     deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
     if not deck:
@@ -2578,7 +2581,7 @@ Focus on key concepts, definitions, and important details.
 
 NOTES:
 {content[:4000]}"""
-    resp = await ai_complete("You are a strict JSON generator.", [{"role": "user", "content": prompt}], 4000)
+    resp = await ai_complete("You are a strict JSON generator.", [{"role": "user", "content": prompt}], 4000, model=model)
     text = ai_text(resp)
     text = re.sub(r'^```(?:json)?\s*', '', text.strip())
     text = re.sub(r'\s*```$', '', text)
@@ -2598,7 +2601,7 @@ NOTES:
 
 # Generate flashcards from a worksheet
 @api_router.post("/flashcards/decks/{deck_id}/generate-from-worksheet/{worksheet_id}")
-async def generate_from_worksheet(deck_id: str, worksheet_id: str, authorization: Optional[str] = Header(None)):
+async def generate_from_worksheet(deck_id: str, worksheet_id: str, model: Optional[str] = Form(None), authorization: Optional[str] = Header(None)):
     user = await auth_module.get_current_user(authorization)
     deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
     if not deck:

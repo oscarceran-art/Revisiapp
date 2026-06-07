@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Sparkle, Notebook } from "@phosphor-icons/react";
 import { generateNotes } from "@/lib/api";
 import { useSidebarData } from "@/context/SidebarContext";
+import ModelSelector from "@/components/ModelSelector";
 
 const DEPTHS = [
   { id: "overview", label: "Overview", desc: "Quick summary" },
@@ -22,6 +23,7 @@ export default function NotesGeneratorPage() {
     subject_id: defaultSubjectId,
     topic: "",
     depth: "standard",
+    model: null,
   });
   const [generating, setGenerating] = useState(false);
 
@@ -96,6 +98,8 @@ export default function NotesGeneratorPage() {
               ))}
             </div>
           </div>
+
+          <ModelSelector value={form.model} onChange={m => setForm(v => ({ ...v, model: m }))} />
 
           <button
             onClick={handleGenerate}

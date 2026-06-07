@@ -227,7 +227,7 @@ export default function Layout() {
               { to: "/worksheets/new", icon: FileText, label: "New sheet" },
               { to: "/notes/new", icon: Notebook, label: "New notes" },
               { to: "/exams", icon: CalendarBlank, label: "Exams" },
-              { to: "/flashcards", icon: Cards, label: "Flashcards" },
+              { to: "/tools", icon: Cards, label: "Tools" },
               { to: "/subjects", icon: BookBookmark, label: "Subjects" },
             ].map(it => {
               const Icon = it.icon;
@@ -292,14 +292,14 @@ export default function Layout() {
                   <span className="text-[14px] font-semibold">Exams & countdowns</span>
                 </NavLink>
                 <NavLink
-                  to="/flashcards"
-                  data-testid="sidebar-flashcards-link"
+                  to="/tools"
+                  data-testid="sidebar-tools-link"
                   className={({ isActive }) =>
                     `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
                   }
                 >
                   <Cards size={16} weight="regular" />
-                  <span className="text-[14px] font-semibold">Flashcards</span>
+                  <span className="text-[14px] font-semibold">Tools</span>
                 </NavLink>
                 <NavLink
                  to="/subjects"

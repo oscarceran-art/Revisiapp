@@ -467,7 +467,7 @@ export default function FloatingTimer() {
       </div>
 
       {showOptions && (
-        <SettingsPanel className={`px-4 py-3 border-t ${borderC} space-y-3 text-[11px]`}
+        <SettingsPanel className={`px-4 py-3 border-t ${borderC} space-y-3 text-[11px] max-h-[50vh] overflow-y-auto`}
           state={state}
           setMode={setMode} setDesign={setDesign} setDuration={setDuration}
           setTheme={setTheme} setAccent={setAccent} setSoundOn={setSoundOn}

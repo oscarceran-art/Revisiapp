@@ -153,14 +153,21 @@ export const createCard = (deckId, data) =>
 export const reviewCard = (cardId, quality) =>
   api.post(`/flashcards/cards/${cardId}/review`, { quality }).then(r => r.data);
 export const deleteCard = (cardId) => api.delete(`/flashcards/cards/${cardId}`).then(r => r.data);
-export const generateCards = (deckId, topic, count = 10) => {
+export const generateCards = (deckId, topic, count = 10, model = null) => {
   const fd = new FormData();
   fd.append("topic", topic);
   fd.append("count", count);
+  if (model) fd.append("model", model);
   return api.post(`/flashcards/decks/${deckId}/generate`, fd).then(r => r.data);
 };
-export const generateCardsFromNotes = (deckId, noteId) =>
-  api.post(`/flashcards/decks/${deckId}/generate-from-notes/${noteId}`).then(r => r.data);
-export const generateCardsFromWorksheet = (deckId, worksheetId) =>
-  api.post(`/flashcards/decks/${deckId}/generate-from-worksheet/${worksheetId}`).then(r => r.data);
+export const generateCardsFromNotes = (deckId, noteId, model = null) => {
+  const fd = new FormData();
+  if (model) fd.append("model", model);
+  return api.post(`/flashcards/decks/${deckId}/generate-from-notes/${noteId}`, fd).then(r => r.data);
+};
+export const generateCardsFromWorksheet = (deckId, worksheetId, model = null) => {
+  const fd = new FormData();
+  if (model) fd.append("model", model);
+  return api.post(`/flashcards/decks/${deckId}/generate-from-worksheet/${worksheetId}`, fd).then(r => r.data);
+};
 export const getDueCount = () => api.get("/flashcards/due-count").then(r => r.data);

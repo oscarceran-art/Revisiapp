@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Sparkle, ArrowLeft, UploadSimple, FileText } from "@phosphor-icons/react";
 import { generateWorksheet, worksheetFromPastPaper } from "@/lib/api";
 import { useSidebarData } from "@/context/SidebarContext";
+import ModelSelector from "@/components/ModelSelector";
 
 const DIFFICULTIES = ["easy", "medium", "hard", "mixed"];
 const TYPES = [
@@ -32,6 +33,7 @@ export default function WorksheetGeneratorPage() {
     difficulty: "medium",
     question_type: "mixed",
     extra_instructions: "",
+    model: null,
   });
   const [generating, setGenerating] = useState(false);
 
@@ -181,6 +183,8 @@ export default function WorksheetGeneratorPage() {
                   data-testid="worksheet-extra-input"
                 />
               </div>
+
+              <ModelSelector value={form.model} onChange={m => setForm(v => ({ ...v, model: m }))} />
 
               <button
                 onClick={handleGenerate}

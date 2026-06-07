@@ -4,6 +4,7 @@ import { listCards, reviewCard, createCard, deleteCard, generateCards, generateC
 import { ArrowLeft, Plus, Trash, Sparkle, NotePencil, FileText, Check, X, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useSidebarData } from "@/context/SidebarContext";
+import ModelSelector from "@/components/ModelSelector";
 
 const qualityLabels = [
   { label: "Blackout", desc: "Complete blackout", color: "bg-red-500" },
@@ -29,6 +30,7 @@ export default function FlashcardStudyPage() {
   const [showGenerate, setShowGenerate] = useState(false);
   const [genTopic, setGenTopic] = useState("");
   const [genCount, setGenCount] = useState(10);
+  const [genModel, setGenModel] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [mode, setMode] = useState("all"); // "all" | "due"
 
@@ -88,7 +90,7 @@ export default function FlashcardStudyPage() {
     if (!genTopic.trim()) return;
     setGenerating(true);
     try {
-      await generateCards(deckId, genTopic.trim(), genCount);
+      await generateCards(deckId, genTopic.trim(), genCount, genModel);
       setGenTopic(""); setShowGenerate(false);
       await load();
       toast.success("Cards generated!");
@@ -99,7 +101,7 @@ export default function FlashcardStudyPage() {
   const handleGenerateFromNotes = async (noteId) => {
     setGenerating(true);
     try {
-      await generateCardsFromNotes(deckId, noteId);
+      await generateCardsFromNotes(deckId, noteId, genModel);
       await load();
       toast.success("Cards generated from notes!");
     } catch { toast.error("Failed to generate from notes"); }
@@ -109,7 +111,7 @@ export default function FlashcardStudyPage() {
   const handleGenerateFromWorksheet = async (worksheetId) => {
     setGenerating(true);
     try {
-      await generateCardsFromWorksheet(deckId, worksheetId);
+      await generateCardsFromWorksheet(deckId, worksheetId, genModel);
       await load();
       toast.success("Cards generated from worksheet!");
     } catch { toast.error("Failed to generate from worksheet"); }
@@ -300,6 +302,9 @@ export default function FlashcardStudyPage() {
                       className={`text-xs rounded-full px-2.5 py-1 ${genCount === n ? "bg-black text-white" : "bg-black/5 text-black/60"}`}
                     >{n}</button>
                   ))}
+                </div>
+                <div className="mb-3">
+                  <ModelSelector value={genModel} onChange={setGenModel} />
                 </div>
                 <button
                   onClick={handleGenerate}
