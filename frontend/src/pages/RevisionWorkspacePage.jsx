@@ -32,6 +32,7 @@ export default function RevisionWorkspacePage() {
   const [textModel, setTextModel] = useState(null);
   const [imageModel, setImageModel] = useState("gpt-image-1");
   const [imageQuality, setImageQuality] = useState("auto");
+  const [imageSize, setImageSize] = useState("auto");
   const [generating, setGenerating] = useState(false);
 
   // Text recall state
@@ -77,7 +78,7 @@ export default function RevisionWorkspacePage() {
         setKeyPoints(res.key_points || []);
       }
       if (mode === "diagram" || mode === "mixed") {
-        const res = await workspaceGenerateDiagram({ subject_id: subjectId || null, topic: topic.trim(), image_model: imageModel, quality: imageQuality });
+        const res = await workspaceGenerateDiagram({ subject_id: subjectId || null, topic: topic.trim(), image_model: imageModel, quality: imageQuality, size: imageSize });
         setDiagramExercise(res.exercise);
       }
       toast.success("Content generated!");
@@ -192,6 +193,16 @@ export default function RevisionWorkspacePage() {
                     <option value="low">Low — fastest</option>
                     <option value="medium">Medium — balanced</option>
                     <option value="high">High — best quality</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Image size</label>
+                  <select value={imageSize} onChange={e => setImageSize(e.target.value)}
+                    className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
+                    <option value="auto">Auto</option>
+                    <option value="1024x1024">Square (1024x1024)</option>
+                    <option value="1024x1536">Portrait (1024x1536)</option>
+                    <option value="1536x1024">Landscape (1536x1024)</option>
                   </select>
                 </div>
               </div>

@@ -74,12 +74,14 @@ AI_MODELS = {
 if DEFAULT_AI_MODEL not in AI_MODELS:
     DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
 
+IMAGE_SIZES = ["1024x1024", "1024x1536", "1536x1024", "auto"]
+
 IMAGE_MODELS = {
     "gpt-image-1-mini": {
         "label": "GPT Image 1 Mini",
         "description": "Fastest, lowest cost — good for quick diagrams.",
         "api_model": "gpt-image-1-mini",
-        "size": "512x512",
+        "size": "1024x1024",
     },
     "gpt-image-1": {
         "label": "GPT Image 1",
@@ -140,14 +142,14 @@ def _normalise_image_model(model: Optional[str] = None) -> str:
     return candidate if candidate in IMAGE_MODELS else DEFAULT_IMAGE_MODEL
 
 
-async def ai_image(prompt: str, model: Optional[str] = None, quality: Optional[str] = None) -> str:
+async def ai_image(prompt: str, model: Optional[str] = None, quality: Optional[str] = None, size: Optional[str] = None) -> str:
     _require_ai_client()
     cfg = IMAGE_MODELS[_normalise_image_model(model)]
     kwargs: dict = {
         "model": cfg["api_model"],
         "prompt": prompt,
         "n": 1,
-        "size": cfg["size"],
+        "size": size or cfg["size"],
     }
     if quality:
         kwargs["quality"] = quality
@@ -2730,6 +2732,7 @@ class WorkspaceDiagramRequest(BaseModel):
     topic: str
     image_model: Optional[str] = None
     quality: Optional[str] = None
+    size: Optional[str] = None
 
 
 class CheckRecallRequest(BaseModel):
@@ -2798,7 +2801,7 @@ async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization
         prompt += f" Subject: {subject['name']}."
 
     try:
-        image_url = await ai_image(prompt, model=req.image_model, quality=req.quality)
+        image_url = await ai_image(prompt, model=req.image_model, quality=req.quality, size=req.size)
         if not image_url:
             raise HTTPException(status_code=502, detail="Image generation returned no URL")
     except Exception as e:
