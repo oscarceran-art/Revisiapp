@@ -2790,21 +2790,7 @@ async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization
     user = await auth_module.get_current_user(authorization)
     subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
 
-    # First: identify the key structures and their labels
-    label_prompt = f"""Given the diagram topic "{req.topic}", identify the 4-8 key labelled structures that should appear.
-Return ONLY valid JSON as an array of objects:
-[{{"id": "1", "label": "Structure name", "expected": "correct answer"}}, ...]
-Output MUST be valid parseable JSON."""
-    try:
-        resp = await ai_complete("You are a biology/chemistry/physics diagram expert.", [{"role": "user", "content": label_prompt}], 2000)
-        labels_raw = ai_text(resp)
-        labels = json.loads(re.sub(r'^```(?:json)?\s*|\s*```$', '', labels_raw.strip()))
-    except Exception:
-        labels = []
-
-    # Then: generate the image with specific numbered labels so image matches our label list
-    label_descriptions = "; ".join([f"{lbl['id']}: {lbl['label']}" for lbl in labels]) if labels else "key structures"
-    prompt = f"Generate a clear educational diagram of {req.topic}. Include exactly these numbered labels: {label_descriptions}. Draw each number clearly pointing to its structure. Clean white background. No text labels — use numbers only."
+    prompt = f"Generate a clear educational diagram of {req.topic} to help a student visualize and understand the topic. Clean white background, clean lines, use colour to distinguish structures. Do not include any labels or numbers — just the diagram itself."
     if subject:
         prompt += f" Subject: {subject['name']}."
 
@@ -2822,7 +2808,7 @@ Output MUST be valid parseable JSON."""
         topic=req.topic,
         image_url=image_url,
         image_model=req.image_model or DEFAULT_IMAGE_MODEL,
-        labels=labels,
+        labels=[],
     )
     doc = serialize_doc(exercise.model_dump())
     doc["user_id"] = user["id"]

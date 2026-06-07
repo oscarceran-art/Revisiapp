@@ -4,7 +4,7 @@ import { ArrowLeft, Sparkle, NotePencil, Image, Stack } from "@phosphor-icons/re
 import { toast } from "sonner";
 import { useSidebarData } from "@/context/SidebarContext";
 import ModelSelector from "@/components/ModelSelector";
-import { workspaceGenerateText, workspaceGenerateDiagram, workspaceCheckRecall, workspaceCheckDiagram } from "@/lib/api";
+import { workspaceGenerateText, workspaceGenerateDiagram, workspaceCheckRecall } from "@/lib/api";
 
 const IMAGE_MODELS = {
   "gpt-image-1-mini": { label: "GPT Image 1 Mini", desc: "Fastest, lowest cost" },
@@ -15,7 +15,7 @@ const IMAGE_MODELS = {
 
 const MODES = [
   { id: "text", icon: NotePencil, label: "Text Recall", desc: "Generate exam Q&A, hide it, and recall from memory" },
-  { id: "diagram", icon: Image, label: "Diagram Recall", desc: "Generate a diagram, label structures from memory" },
+  { id: "diagram", icon: Image, label: "Diagram Recall", desc: "Generate a diagram to help visualise the topic" },
   { id: "mixed", icon: Stack, label: "Mixed Recall", desc: "Combine text and diagram recall side by side" },
 ];
 
@@ -42,18 +42,13 @@ export default function RevisionWorkspacePage() {
 
   // Diagram recall state
   const [diagramExercise, setDiagramExercise] = useState(null);
-  const [diagramLabels, setDiagramLabels] = useState({});
-  const [diagramFeedback, setDiagramFeedback] = useState(null);
-  const [diagramMarking, setDiagramMarking] = useState(false);
 
   const handleGenerate = async () => {
     if (!topic.trim()) { toast.error("Enter a topic"); return; }
     setGenerating(true);
     setFeedback(null);
-    setDiagramFeedback(null);
     setContentHidden(false);
     setRecall("");
-    setDiagramLabels({});
     try {
       if (mode === "text" || mode === "mixed") {
         const res = await workspaceGenerateText({ subject_id: subjectId || null, topic: topic.trim(), model: textModel });
@@ -63,10 +58,6 @@ export default function RevisionWorkspacePage() {
       if (mode === "diagram" || mode === "mixed") {
         const res = await workspaceGenerateDiagram({ subject_id: subjectId || null, topic: topic.trim(), image_model: imageModel });
         setDiagramExercise(res.exercise);
-        const labels = res.exercise.labels || [];
-        const labelMap = {};
-        labels.forEach(l => { labelMap[l.id] = ""; });
-        setDiagramLabels(labelMap);
       }
       toast.success("Content generated!");
     } catch (e) {
@@ -91,28 +82,12 @@ export default function RevisionWorkspacePage() {
     }
   };
 
-  const handleCheckDiagram = async () => {
-    if (!diagramExercise) return;
-    setDiagramMarking(true);
-    try {
-      const res = await workspaceCheckDiagram({ exercise_id: diagramExercise.id, labels: diagramLabels });
-      setDiagramFeedback(res);
-      toast.success("Diagram checked!");
-    } catch {
-      toast.error("Failed to check diagram");
-    } finally {
-      setDiagramMarking(false);
-    }
-  };
-
   const handleReset = () => {
     setExercise(null);
     setDiagramExercise(null);
     setKeyPoints([]);
     setFeedback(null);
-    setDiagramFeedback(null);
     setRecall("");
-    setDiagramLabels({});
     setContentHidden(false);
     setTopic("");
   };
@@ -123,8 +98,8 @@ export default function RevisionWorkspacePage() {
   return (
     <div className="min-h-screen pt-20 md:pt-14 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="workspace-page">
       <div className="max-w-7xl mx-auto">
-        <button onClick={() => navigate("/tools")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-4">
-          <ArrowLeft size={14} weight="bold" /> Back to tools
+        <button onClick={() => navigate("/")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-4">
+          <ArrowLeft size={14} weight="bold" /> Back
         </button>
 
         <div className="mb-6">
@@ -294,63 +269,9 @@ export default function RevisionWorkspacePage() {
                 <div className="space-y-4">
                   <div className="bg-white border border-black/10 rounded-3xl overflow-hidden">
                     {diagramExercise.image_url && (
-                      <img src={diagramExercise.image_url} alt={topic} className="w-full object-contain max-h-[300px] border-b border-black/10" />
+                      <img src={diagramExercise.image_url} alt={topic} className="w-full object-contain max-h-[400px]" />
                     )}
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] uppercase tracking-[0.22em] text-black/45">Label the diagram</span>
-                        <button onClick={handleCheckDiagram} disabled={diagramMarking}
-                          className="bg-black text-white rounded-full px-4 py-1.5 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98]">
-                          <Sparkle size={12} weight="fill" />
-                          {diagramMarking ? "Checking..." : "Check diagram"}
-                        </button>
-                      </div>
-                      <div className="text-xs text-black/50 mb-3">Write the correct label for each number:</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(diagramExercise.labels || []).map(lbl => (
-                          <div key={lbl.id} className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-black/60 min-w-[20px] w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">{lbl.id}</span>
-                            <input
-                              value={diagramLabels[lbl.id] || ""}
-                              onChange={e => setDiagramLabels(prev => ({ ...prev, [lbl.id]: e.target.value }))}
-                              placeholder="?"
-                              className="flex-1 border border-black/15 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-black"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
-
-                  {diagramFeedback && (
-                    <div className="bg-white border border-black/10 rounded-3xl p-5 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] uppercase tracking-[0.22em] text-black/45">Diagram Feedback</span>
-                        <span className="text-2xl font-extrabold">{diagramFeedback.score}%</span>
-                      </div>
-                      <div className="text-xs text-black/50">{diagramFeedback.correct}/{diagramFeedback.total} correct</div>
-                      {Object.keys(diagramFeedback.incorrect_labels || {}).length > 0 && (
-                        <div>
-                          <div className="text-[11px] uppercase tracking-[0.22em] text-red-500 mb-1">Incorrect</div>
-                          {Object.entries(diagramFeedback.incorrect_labels).map(([label, data]) => (
-                            <div key={label} className="flex items-center gap-2 text-xs mb-1">
-                              <span className="font-bold">{label}:</span>
-                              <span className="text-red-500 line-through">{data.student}</span>
-                              <span className="text-green-600">→ {data.expected}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {diagramFeedback.missing_labels?.length > 0 && (
-                        <div>
-                          <div className="text-[11px] uppercase tracking-[0.22em] text-amber-600 mb-1">Missing</div>
-                          <ul className="list-disc list-inside text-xs text-amber-700 space-y-0.5">
-                            {diagramFeedback.missing_labels.map((l, i) => <li key={i}>{l}</li>)}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
