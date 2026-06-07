@@ -4,6 +4,8 @@ import { listDecks, createDeck, deleteDeck, getDueCount } from "@/lib/api";
 import { Plus, Trash, Notebook, Spinner } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
+const EMOJIS = ["🧬", "⚛️", "🌍", "📚", "➗", "🔬", "🧪", "🔭", "📝", "🎯", "🧠", "💡", "📊", "🔢", "🌿", "🧲", "💻", "🎨", "🏛️", "🌊"];
+
 export default function FlashcardsPage() {
   const navigate = useNavigate();
   const [decks, setDecks] = useState([]);
@@ -11,6 +13,7 @@ export default function FlashcardsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newIcon, setNewIcon] = useState("🧬");
 
   const load = async () => {
     try {
@@ -25,7 +28,7 @@ export default function FlashcardsPage() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     try {
-      await createDeck({ name: newName.trim(), description: newDesc.trim() });
+      await createDeck({ name: newName.trim(), description: newDesc.trim(), icon: newIcon });
       setNewName(""); setNewDesc(""); setShowCreate(false);
       await load();
       toast.success("Deck created");
@@ -80,6 +83,20 @@ export default function FlashcardsPage() {
               onChange={e => setNewDesc(e.target.value)}
               className="w-full border border-black/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-black mb-3"
             />
+            <div className="mb-3">
+              <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-1.5">Icon</label>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOJIS.map(e => (
+                  <button
+                    key={e}
+                    onClick={() => setNewIcon(e)}
+                    className={`w-8 h-8 rounded-lg text-base flex items-center justify-center transition-colors ${newIcon === e ? "bg-black text-white" : "hover:bg-black/[0.05]"}`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex gap-2">
               <button onClick={handleCreate} className="bg-black text-white rounded-xl px-4 py-1.5 text-sm font-bold active:scale-[0.98]">Create</button>
               <button onClick={() => setShowCreate(false)} className="text-sm text-black/60 px-3 py-1.5">Cancel</button>
@@ -102,8 +119,8 @@ export default function FlashcardsPage() {
               className="text-left bg-white border border-black/10 rounded-2xl p-5 hover:border-black/25 transition-colors active:scale-[0.99] group"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center">
-                  <Notebook size={16} weight="fill" />
+                <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center text-base">
+                  {deck.icon || "📚"}
                 </div>
                 <button onClick={(e) => handleDelete(e, deck.id)} className="text-black/20 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100">
                   <Trash size={14} />

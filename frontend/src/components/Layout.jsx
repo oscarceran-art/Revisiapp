@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, Cards } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, SquaresFour } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
 import { useTimer } from "@/context/TimerContext";
@@ -227,7 +227,7 @@ export default function Layout() {
               { to: "/worksheets/new", icon: FileText, label: "New sheet" },
               { to: "/notes/new", icon: Notebook, label: "New notes" },
               { to: "/exams", icon: CalendarBlank, label: "Exams" },
-              { to: "/tools", icon: Cards, label: "Tools" },
+              { to: "/tools", icon: SquaresFour, label: "Tools" },
               { to: "/subjects", icon: BookBookmark, label: "Subjects" },
             ].map(it => {
               const Icon = it.icon;
@@ -298,7 +298,7 @@ export default function Layout() {
                     `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
                   }
                 >
-                  <Cards size={16} weight="regular" />
+                  <SquaresFour size={16} weight="regular" />
                   <span className="text-[14px] font-semibold">Tools</span>
                 </NavLink>
                 <NavLink

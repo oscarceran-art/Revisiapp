@@ -1,27 +1,27 @@
 import { useNavigate } from "react-router-dom";
-import { Cards, NotePencil, Image } from "@phosphor-icons/react";
+import { Stack, NotePencil, Image, Cards } from "@phosphor-icons/react";
 
 const tools = [
+  {
+    to: "/workspace",
+    icon: Stack,
+    title: "Revision Workspace",
+    desc: "Active recall studio with text blurting, diagram labelling, and AI marking in one whiteboard-style environment.",
+    gradient: "from-pink-400 to-blue-500",
+  },
   {
     to: "/flashcards",
     icon: Cards,
     title: "Flashcards",
-    desc: "Spaced repetition flashcards with SM-2 algorithm. Create decks, study with AI generation, and track your progress.",
-    color: "from-pink-400 to-blue-500",
+    desc: "Spaced repetition flashcards with SM-2 algorithm. Create decks, study with AI generation.",
+    gradient: "from-purple-400 to-pink-500",
   },
   {
-    to: "/blurting",
+    to: "/worksheets/new",
     icon: NotePencil,
-    title: "Blurting Workspace",
-    desc: "Generate model answers, hide them, and recall from memory. AI marks your blurt against the original.",
-    color: "from-purple-400 to-pink-500",
-  },
-  {
-    to: "/diagrams",
-    icon: Image,
-    title: "Diagram Recall Board",
-    desc: "Generate diagram descriptions, sketch from memory, and get AI vision-based feedback on your drawings.",
-    color: "from-blue-400 to-cyan-500",
+    title: "Worksheets",
+    desc: "Generate exam-style worksheets, mark them, and get AI feedback on your answers.",
+    gradient: "from-blue-400 to-cyan-500",
   },
 ];
 
@@ -44,10 +44,10 @@ export default function ToolsPage() {
               <button
                 key={t.to}
                 onClick={() => navigate(t.to)}
-                className="text-left bg-white border border-black/10 rounded-3xl p-6 hover:border-black/25 transition-all active:scale-[0.98] group"
+                className="group text-left bg-white border border-black/10 rounded-3xl p-6 hover:border-black/25 transition-all active:scale-[0.98]"
               >
-                <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${t.color} text-white flex items-center justify-center mb-4`}>
-                  <Icon size={20} weight="fill" />
+                <div className="w-11 h-11 rounded-2xl bg-black flex items-center justify-center mb-4 group-hover:bg-gradient-to-br group-hover:from-pink-400 group-hover:to-blue-500 transition-all duration-300">
+                  <Icon size={20} weight="fill" className="text-white" />
                 </div>
                 <div className="font-extrabold text-lg mb-2">{t.title}</div>
                 <div className="text-sm text-black/55 leading-relaxed">{t.desc}</div>

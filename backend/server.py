@@ -74,6 +74,31 @@ AI_MODELS = {
 if DEFAULT_AI_MODEL not in AI_MODELS:
     DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
 
+IMAGE_MODELS = {
+    "gpt-image-1-fast": {
+        "label": "GPT Image 1 Fast",
+        "description": "Fastest generation, lower cost, good for quick diagrams.",
+        "api_model": "dall-e-2",
+        "quality": "standard",
+        "size": "1024x1024",
+    },
+    "gpt-image-1-standard": {
+        "label": "GPT Image 1 Standard",
+        "description": "Balanced quality and speed for most diagrams.",
+        "api_model": "dall-e-3",
+        "quality": "standard",
+        "size": "1024x1024",
+    },
+    "gpt-image-1-hd": {
+        "label": "GPT Image 1 High Detail",
+        "description": "Best quality for detailed educational diagrams, higher cost.",
+        "api_model": "dall-e-3",
+        "quality": "hd",
+        "size": "1024x1024",
+    },
+}
+DEFAULT_IMAGE_MODEL = "gpt-image-1-standard"
+
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 
@@ -104,6 +129,24 @@ def ai_text(resp) -> str:
     if not getattr(resp, "choices", None):
         return ""
     return resp.choices[0].message.content or ""
+
+
+def _normalise_image_model(model: Optional[str] = None) -> str:
+    candidate = model or DEFAULT_IMAGE_MODEL
+    return candidate if candidate in IMAGE_MODELS else DEFAULT_IMAGE_MODEL
+
+
+async def ai_image(prompt: str, model: Optional[str] = None) -> str:
+    _require_ai_client()
+    cfg = IMAGE_MODELS[_normalise_image_model(model)]
+    resp = await openai_client.images.generate(
+        model=cfg["api_model"],
+        prompt=prompt,
+        quality=cfg["quality"],
+        size=cfg["size"],
+        n=1,
+    )
+    return resp.data[0].url if resp.data else ""
 
 
 async def ai_stream(system: str, messages: List[dict], max_tokens: int, model: Optional[str] = None):
@@ -2394,6 +2437,7 @@ class FlashcardDeckCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     subject_id: Optional[str] = None
+    icon: Optional[str] = None
 
 
 class FlashcardDeck(BaseModel):
@@ -2402,6 +2446,7 @@ class FlashcardDeck(BaseModel):
     name: str
     description: Optional[str] = ""
     subject_id: Optional[str] = None
+    icon: Optional[str] = None
     card_count: int = 0
     due_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -2447,7 +2492,7 @@ async def list_decks(authorization: Optional[str] = Header(None)):
 @api_router.post("/flashcards/decks", response_model=FlashcardDeck)
 async def create_deck(payload: FlashcardDeckCreate, authorization: Optional[str] = Header(None)):
     user = await auth_module.get_current_user(authorization)
-    obj = FlashcardDeck(name=payload.name, description=payload.description, subject_id=payload.subject_id)
+    obj = FlashcardDeck(name=payload.name, description=payload.description, subject_id=payload.subject_id, icon=payload.icon)
     doc = serialize_doc(obj.model_dump())
     doc["user_id"] = user["id"]
     await db.flashcard_decks.insert_one(doc)
@@ -2631,6 +2676,230 @@ async def due_count(authorization: Optional[str] = Header(None)):
     now = datetime.now(timezone.utc)
     count = await db.flashcards.count_documents({"user_id": user["id"], "next_review": {"$lte": now}})
     return {"count": count}
+
+
+# ---------- WORKSPACE (Revision Workspace) ----------
+class BlurtingExercise(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    subject_id: Optional[str] = None
+    subject_name: Optional[str] = ""
+    topic: str
+    prompt: str = ""
+    model_answer: str = ""
+    student_recall: Optional[str] = None
+    feedback: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class DiagramExercise(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    subject_id: Optional[str] = None
+    subject_name: Optional[str] = ""
+    topic: str
+    image_url: str = ""
+    image_model: str = ""
+    labels: List[Dict[str, Any]] = Field(default_factory=list)
+    student_labels: Optional[Dict[str, str]] = None
+    feedback: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WorkspaceTextRequest(BaseModel):
+    subject_id: Optional[str] = None
+    topic: str
+    prompt: str = ""
+    model: Optional[str] = None
+
+
+class WorkspaceDiagramRequest(BaseModel):
+    subject_id: Optional[str] = None
+    topic: str
+    image_model: Optional[str] = None
+
+
+class CheckRecallRequest(BaseModel):
+    exercise_id: str
+    student_recall: str
+
+
+class CheckDiagramRequest(BaseModel):
+    exercise_id: str
+    labels: Dict[str, str]
+
+
+# Generate text content for blurting
+@api_router.post("/workspace/generate-text")
+async def workspace_generate_text(req: WorkspaceTextRequest, authorization: Optional[str] = Header(None)):
+    _require_ai_client()
+    user = await auth_module.get_current_user(authorization)
+    subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
+
+    parts = [
+        f"You are generating a realistic exam-style question and model answer on: \"{req.topic}\".",
+        "Generate ONE specific question that would realistically appear in an exam.",
+        "Then provide a concise model answer (2-6 sentences, exam-style).",
+        "Format as JSON:",
+        '{ "question": "...", "answer": "...", "key_points": ["...", "..."] }',
+        "Keep answers concise and realistic. No essays. Output ONLY valid JSON.",
+    ]
+    if subject:
+        parts.append(f"Subject: {subject['name']}.")
+
+    prompt = "\n\n".join(parts)
+    try:
+        resp = await ai_complete(
+            "You are an exam board examiner. Return ONLY valid JSON, no prose, no code fences.",
+            [{"role": "user", "content": prompt}],
+            2000,
+            model=req.model,
+        )
+        raw = ai_text(resp)
+        data = json.loads(raw)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
+
+    exercise = BlurtingExercise(
+        subject_id=req.subject_id,
+        subject_name=subject['name'] if subject else "",
+        topic=req.topic,
+        prompt=data.get("question", req.topic),
+        model_answer=data.get("answer", ""),
+    )
+    doc = serialize_doc(exercise.model_dump())
+    doc["user_id"] = user["id"]
+    await db.blurting_exercises.insert_one(doc)
+    return {"exercise": exercise.model_dump(), "key_points": data.get("key_points", [])}
+
+
+# Generate diagram using image model
+@api_router.post("/workspace/generate-diagram")
+async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization: Optional[str] = Header(None)):
+    _require_ai_client()
+    user = await auth_module.get_current_user(authorization)
+    subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
+
+    prompt = f"Generate a clear educational diagram of {req.topic}. Use labels, clean lines, and a white background. Make it suitable for a student to study from and then reproduce from memory."
+    if subject:
+        prompt += f" Subject: {subject['name']}."
+
+    try:
+        image_url = await ai_image(prompt, model=req.image_model)
+        if not image_url:
+            raise HTTPException(status_code=502, detail="Image generation returned no URL")
+    except Exception as e:
+        logger.exception("Image generation failed")
+        raise HTTPException(status_code=502, detail=f"Image generation error: {str(e)}")
+
+    # Use AI to identify key structures for labels
+    label_prompt = f"""Given the diagram topic "{req.topic}", identify the 4-8 key labelled structures that should appear.
+Return ONLY valid JSON as an array of objects:
+[{{"id": "1", "label": "Structure name", "expected": "correct answer"}}, ...]
+Output MUST be valid parseable JSON."""
+    try:
+        resp = await ai_complete("You are a biology/chemistry/physics diagram expert.", [{"role": "user", "content": label_prompt}], 2000)
+        labels_raw = ai_text(resp)
+        labels = json.loads(re.sub(r'^```(?:json)?\s*|\s*```$', '', labels_raw.strip()))
+    except Exception:
+        labels = []
+
+    exercise = DiagramExercise(
+        subject_id=req.subject_id,
+        subject_name=subject['name'] if subject else "",
+        topic=req.topic,
+        image_url=image_url,
+        image_model=req.image_model or DEFAULT_IMAGE_MODEL,
+        labels=labels,
+    )
+    doc = serialize_doc(exercise.model_dump())
+    doc["user_id"] = user["id"]
+    await db.diagram_exercises.insert_one(doc)
+    return {"exercise": exercise.model_dump()}
+
+
+# Check text recall
+@api_router.post("/workspace/check-recall")
+async def workspace_check_recall(req: CheckRecallRequest, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    exercise = await db.blurting_exercises.find_one({"id": req.exercise_id, "user_id": user["id"]})
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    prompt = f"""You are an examiner. Compare the student's recall against the model answer.
+
+Model answer:
+{exercise.get("model_answer", "")}
+
+Student's recall:
+{req.student_recall}
+
+Return ONLY valid JSON:
+{{
+  "score": <0-10>,
+  "accuracy": "<percentage>",
+  "missing_points": ["...", ...],
+  "misconceptions": ["...", ...],
+  "feedback": "<2-3 sentence constructive feedback>",
+  "follow_up_question": "<a follow-up question to test deeper understanding>"
+}}
+Output MUST be valid parseable JSON."""
+    try:
+        resp = await ai_complete("You are a strict examiner. Return ONLY valid JSON.", [{"role": "user", "content": prompt}], 2000)
+        raw = ai_text(resp)
+        feedback = json.loads(re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip()))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Failed to assess recall")
+
+    await db.blurting_exercises.update_one(
+        {"id": req.exercise_id},
+        {"$set": {"student_recall": req.student_recall, "feedback": feedback}}
+    )
+    return feedback
+
+
+# Check diagram labels
+@api_router.post("/workspace/check-diagram")
+async def workspace_check_diagram(req: CheckDiagramRequest, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    exercise = await db.diagram_exercises.find_one({"id": req.exercise_id, "user_id": user["id"]})
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    expected = {lbl.get("id"): lbl.get("expected", "") for lbl in (exercise.get("labels") or [])}
+    correct = {}
+    incorrect = {}
+    missing = []
+    for lid, expected_answer in expected.items():
+        student_answer = req.labels.get(lid, "").strip()
+        if not student_answer:
+            label_name = next((l.get("label", lid) for l in (exercise.get("labels") or []) if l.get("id") == lid), lid)
+            missing.append(label_name)
+            continue
+        if student_answer.lower() == expected_answer.lower():
+            correct[lid] = student_answer
+        else:
+            label_name = next((l.get("label", lid) for l in (exercise.get("labels") or []) if l.get("id") == lid), lid)
+            incorrect[label_name] = {"student": student_answer, "expected": expected_answer}
+
+    total = len(expected)
+    correct_count = len(correct)
+    score = round((correct_count / total) * 100) if total > 0 else 0
+
+    feedback = {
+        "score": score,
+        "correct": correct_count,
+        "total": total,
+        "correct_labels": correct,
+        "incorrect_labels": incorrect,
+        "missing_labels": missing,
+    }
+
+    await db.diagram_exercises.update_one(
+        {"id": req.exercise_id},
+        {"$set": {"student_labels": req.labels, "feedback": feedback}}
+    )
+    return feedback
 
 
 # ---------- MOUNT ROUTER + MIDDLEWARE ----------

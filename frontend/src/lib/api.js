@@ -171,3 +171,9 @@ export const generateCardsFromWorksheet = (deckId, worksheetId, model = null) =>
   return api.post(`/flashcards/decks/${deckId}/generate-from-worksheet/${worksheetId}`, fd).then(r => r.data);
 };
 export const getDueCount = () => api.get("/flashcards/due-count").then(r => r.data);
+
+// Workspace (Revision Workspace)
+export const workspaceGenerateText = (data) => api.post("/workspace/generate-text", data).then(r => r.data);
+export const workspaceGenerateDiagram = (data) => api.post("/workspace/generate-diagram", data).then(r => r.data);
+export const workspaceCheckRecall = (data) => api.post("/workspace/check-recall", data).then(r => r.data);
+export const workspaceCheckDiagram = (data) => api.post("/workspace/check-diagram", data).then(r => r.data);
