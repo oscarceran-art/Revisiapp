@@ -75,29 +75,33 @@ if DEFAULT_AI_MODEL not in AI_MODELS:
     DEFAULT_AI_MODEL = FALLBACK_AI_MODEL
 
 IMAGE_MODELS = {
-    "gpt-image-1-fast": {
-        "label": "GPT Image 1 Fast",
-        "description": "Fastest generation, lower cost, good for quick diagrams.",
-        "api_model": "dall-e-2",
-        "quality": "standard",
+    "gpt-image-1-mini": {
+        "label": "GPT Image 1 Mini",
+        "description": "Fastest, lowest cost — good for quick diagrams.",
+        "api_model": "gpt-image-1-mini",
+        "size": "512x512",
+    },
+    "gpt-image-1": {
+        "label": "GPT Image 1",
+        "description": "Fast, low cost — good for general educational diagrams.",
+        "api_model": "gpt-image-1",
         "size": "1024x1024",
     },
-    "gpt-image-1-standard": {
-        "label": "GPT Image 1 Standard",
-        "description": "Balanced quality and speed for most diagrams.",
-        "api_model": "dall-e-3",
-        "quality": "standard",
+    "gpt-image-1.5": {
+        "label": "GPT Image 1.5",
+        "description": "Medium speed, better detail for complex diagrams.",
+        "api_model": "gpt-image-1.5",
         "size": "1024x1024",
     },
-    "gpt-image-1-hd": {
-        "label": "GPT Image 1 High Detail",
+    "gpt-image-2": {
+        "label": "GPT Image 2",
         "description": "Best quality for detailed educational diagrams, higher cost.",
-        "api_model": "dall-e-3",
+        "api_model": "gpt-image-2",
         "quality": "hd",
         "size": "1024x1024",
     },
 }
-DEFAULT_IMAGE_MODEL = "gpt-image-1-standard"
+DEFAULT_IMAGE_MODEL = "gpt-image-1"
 
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
@@ -139,14 +143,19 @@ def _normalise_image_model(model: Optional[str] = None) -> str:
 async def ai_image(prompt: str, model: Optional[str] = None) -> str:
     _require_ai_client()
     cfg = IMAGE_MODELS[_normalise_image_model(model)]
-    resp = await openai_client.images.generate(
-        model=cfg["api_model"],
-        prompt=prompt,
-        quality=cfg["quality"],
-        size=cfg["size"],
-        n=1,
-    )
-    return resp.data[0].url if resp.data else ""
+    kwargs: dict = {
+        "model": cfg["api_model"],
+        "prompt": prompt,
+        "n": 1,
+        "size": cfg["size"],
+        "response_format": "b64_json",
+    }
+    if cfg.get("quality"):
+        kwargs["quality"] = cfg["quality"]
+    resp = await openai_client.images.generate(**kwargs)
+    if resp.data and resp.data[0].b64_json:
+        return f"data:image/png;base64,{resp.data[0].b64_json}"
+    return ""
 
 
 async def ai_stream(system: str, messages: List[dict], max_tokens: int, model: Optional[str] = None):

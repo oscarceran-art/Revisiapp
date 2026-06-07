@@ -8,9 +8,10 @@ import WhiteboardCanvas from "@/components/WhiteboardCanvas";
 import { workspaceGenerateText, workspaceGenerateDiagram, workspaceCheckRecall, workspaceCheckDiagram } from "@/lib/api";
 
 const IMAGE_MODELS = {
-  "gpt-image-1-fast": { label: "GPT Image 1 Fast", desc: "Fastest, lower cost" },
-  "gpt-image-1-standard": { label: "GPT Image 1 Standard", desc: "Balanced quality" },
-  "gpt-image-1-hd": { label: "GPT Image 1 High Detail", desc: "Best quality, higher cost" },
+  "gpt-image-1-mini": { label: "GPT Image 1 Mini", desc: "Fastest, lowest cost" },
+  "gpt-image-1": { label: "GPT Image 1", desc: "Fast, good for general diagrams" },
+  "gpt-image-1.5": { label: "GPT Image 1.5", desc: "Better detail for complex diagrams" },
+  "gpt-image-2": { label: "GPT Image 2", desc: "Best quality, higher cost" },
 };
 
 const MODES = [
@@ -29,7 +30,7 @@ export default function RevisionWorkspacePage() {
   const [subjectId, setSubjectId] = useState("");
   const [topic, setTopic] = useState("");
   const [textModel, setTextModel] = useState(null);
-  const [imageModel, setImageModel] = useState("gpt-image-1-standard");
+  const [imageModel, setImageModel] = useState("gpt-image-1");
   const [generating, setGenerating] = useState(false);
 
   // Text recall state
