@@ -20,6 +20,8 @@ import ExamsPage from "@/pages/ExamsPage";
 import RevisionPlanPage from "@/pages/RevisionPlanPage";
 import LoginPage from "@/pages/LoginPage";
 import AdminPage from "@/pages/AdminPage";
+import FlashcardsPage from "@/pages/FlashcardsPage";
+import FlashcardStudyPage from "@/pages/FlashcardStudyPage";
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -56,6 +58,8 @@ function AppRoutes() {
           <Route path="/exams" element={<ExamsPage />} />
           <Route path="/exams/:examId/plan" element={<RevisionPlanPage />} />
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+          <Route path="/flashcards" element={<FlashcardsPage />} />
+          <Route path="/flashcards/:deckId" element={<FlashcardStudyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

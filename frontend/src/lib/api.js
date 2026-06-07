@@ -141,3 +141,26 @@ export const adminUpdateUser = (id, data) => api.patch(`/admin/users/${id}`, dat
 export const adminDeleteUser = (id) => api.delete(`/admin/users/${id}`).then(r => r.data);
 export const adminCreateUser = (data) => api.post("/admin/users", data).then(r => r.data);
 export const adminResetTokens = (id) => api.post(`/admin/users/${id}/reset-tokens`).then(r => r.data);
+
+// Flashcards
+export const listDecks = () => api.get("/flashcards/decks").then(r => r.data);
+export const createDeck = (data) => api.post("/flashcards/decks", data).then(r => r.data);
+export const deleteDeck = (id) => api.delete(`/flashcards/decks/${id}`).then(r => r.data);
+export const listCards = (deckId, dueOnly = false) =>
+  api.get(`/flashcards/decks/${deckId}/cards`, { params: { due_only: dueOnly } }).then(r => r.data);
+export const createCard = (deckId, data) =>
+  api.post(`/flashcards/decks/${deckId}/cards`, data).then(r => r.data);
+export const reviewCard = (cardId, quality) =>
+  api.post(`/flashcards/cards/${cardId}/review`, { quality }).then(r => r.data);
+export const deleteCard = (cardId) => api.delete(`/flashcards/cards/${cardId}`).then(r => r.data);
+export const generateCards = (deckId, topic, count = 10) => {
+  const fd = new FormData();
+  fd.append("topic", topic);
+  fd.append("count", count);
+  return api.post(`/flashcards/decks/${deckId}/generate`, fd).then(r => r.data);
+};
+export const generateCardsFromNotes = (deckId, noteId) =>
+  api.post(`/flashcards/decks/${deckId}/generate-from-notes/${noteId}`).then(r => r.data);
+export const generateCardsFromWorksheet = (deckId, worksheetId) =>
+  api.post(`/flashcards/decks/${deckId}/generate-from-worksheet/${worksheetId}`).then(r => r.data);
+export const getDueCount = () => api.get("/flashcards/due-count").then(r => r.data);

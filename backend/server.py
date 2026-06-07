@@ -2367,6 +2367,269 @@ async def search(q: str = "", authorization: Optional[str] = Header(None)):
     }
 
 
+# ---------- FLASHCARDS ----------
+# SM-2 spaced repetition algorithm
+def sm2_next(quality: int, interval: int, ease_factor: float, repetitions: int):
+    if quality < 3:
+        repetitions = 0
+        interval = 1
+    else:
+        if repetitions == 0:
+            interval = 1
+        elif repetitions == 1:
+            interval = 6
+        else:
+            interval = round(interval * ease_factor)
+        repetitions += 1
+    ease_factor = ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+    if ease_factor < 1.3:
+        ease_factor = 1.3
+    return interval, ease_factor, repetitions
+
+
+class FlashcardDeckCreate(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    subject_id: Optional[str] = None
+
+
+class FlashcardDeck(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = ""
+    subject_id: Optional[str] = None
+    card_count: int = 0
+    due_count: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FlashcardCreate(BaseModel):
+    front: str
+    back: str
+    hint: Optional[str] = ""
+
+
+class Flashcard(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    deck_id: str
+    front: str
+    back: str
+    hint: Optional[str] = ""
+    interval: int = 0
+    ease_factor: float = 2.5
+    repetitions: int = 0
+    next_review: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_reviewed: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CardReviewRequest(BaseModel):
+    quality: int  # 0-5 (0=complete blackout, 5=perfect recall)
+
+
+@api_router.get("/flashcards/decks")
+async def list_decks(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    decks = await db.flashcard_decks.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    now = datetime.now(timezone.utc)
+    for d in decks:
+        d['card_count'] = await db.flashcards.count_documents({"deck_id": d["id"], "user_id": user["id"]})
+        d['due_count'] = await db.flashcards.count_documents({"deck_id": d["id"], "user_id": user["id"], "next_review": {"$lte": now}})
+        d['created_at'] = parse_datetime(d.get('created_at'))
+    return decks
+
+
+@api_router.post("/flashcards/decks", response_model=FlashcardDeck)
+async def create_deck(payload: FlashcardDeckCreate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    obj = FlashcardDeck(name=payload.name, description=payload.description, subject_id=payload.subject_id)
+    doc = serialize_doc(obj.model_dump())
+    doc["user_id"] = user["id"]
+    await db.flashcard_decks.insert_one(doc)
+    return obj
+
+
+@api_router.delete("/flashcards/decks/{deck_id}")
+async def delete_deck(deck_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    result = await db.flashcard_decks.delete_one({"id": deck_id, "user_id": user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    await db.flashcards.delete_many({"deck_id": deck_id, "user_id": user["id"]})
+    return {"ok": True}
+
+
+@api_router.get("/flashcards/decks/{deck_id}/cards", response_model=List[Flashcard])
+async def list_cards(deck_id: str, due_only: bool = False, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    query = {"deck_id": deck_id, "user_id": user["id"]}
+    if due_only:
+        query["next_review"] = {"$lte": datetime.now(timezone.utc)}
+    cards = await db.flashcards.find(query, {"_id": 0}).sort("next_review", 1).to_list(500)
+    for c in cards:
+        c['next_review'] = parse_datetime(c.get('next_review'))
+        c['last_reviewed'] = parse_datetime(c.get('last_reviewed'))
+        c['created_at'] = parse_datetime(c.get('created_at'))
+    return cards
+
+
+@api_router.post("/flashcards/decks/{deck_id}/cards", response_model=Flashcard)
+async def create_card(deck_id: str, payload: FlashcardCreate, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    obj = Flashcard(deck_id=deck_id, front=payload.front, back=payload.back, hint=payload.hint or "")
+    doc = serialize_doc(obj.model_dump())
+    doc["user_id"] = user["id"]
+    await db.flashcards.insert_one(doc)
+    return obj
+
+
+@api_router.post("/flashcards/cards/{card_id}/review")
+async def review_card(card_id: str, payload: CardReviewRequest, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    card = await db.flashcards.find_one({"id": card_id, "user_id": user["id"]})
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    quality = max(0, min(5, payload.quality))
+    interval, ease_factor, repetitions = sm2_next(
+        quality, card.get("interval", 0), card.get("ease_factor", 2.5), card.get("repetitions", 0)
+    )
+    now = datetime.now(timezone.utc)
+    next_review = now
+    if interval > 0:
+        next_review = datetime.fromtimestamp(now.timestamp() + interval * 86400, tz=timezone.utc)
+    await db.flashcards.update_one(
+        {"id": card_id},
+        {"$set": {
+            "interval": interval,
+            "ease_factor": round(ease_factor, 2),
+            "repetitions": repetitions,
+            "next_review": next_review,
+            "last_reviewed": now,
+        }}
+    )
+    return {"ok": True, "next_review": next_review.isoformat(), "interval": interval}
+
+
+@api_router.delete("/flashcards/cards/{card_id}")
+async def delete_card(card_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    result = await db.flashcards.delete_one({"id": card_id, "user_id": user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return {"ok": True}
+
+
+# AI generate flashcards from a topic
+@api_router.post("/flashcards/decks/{deck_id}/generate")
+async def generate_cards(deck_id: str, topic: str = Form(...), count: int = Form(10), authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    _require_ai_client()
+    prompt = f"""You are a flashcard generator. Create {count} flashcards on the topic "{topic}".
+Each card has a "front" (question/term) and "back" (answer/definition).
+Return ONLY valid JSON as an array of objects with "front" and "back" keys.
+Make them varied — some factual, some conceptual, some application-based.
+Keep fronts concise (under 15 words). Keep backs clear but complete."""
+    resp = await ai_complete("You are a strict JSON generator.", [{"role": "user", "content": prompt}], 4000)
+    text = ai_text(resp)
+    text = re.sub(r'^```(?:json)?\s*', '', text.strip())
+    text = re.sub(r'\s*```$', '', text)
+    try:
+        cards_data = json.loads(text)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI returned invalid JSON")
+    created = []
+    for c in cards_data:
+        obj = Flashcard(deck_id=deck_id, front=c.get("front", ""), back=c.get("back", ""))
+        doc = serialize_doc(obj.model_dump())
+        doc["user_id"] = user["id"]
+        await db.flashcards.insert_one(doc)
+        created.append(obj)
+    card_count = await db.flashcards.count_documents({"deck_id": deck_id, "user_id": user["id"]})
+    await db.flashcard_decks.update_one({"id": deck_id}, {"$set": {"card_count": card_count}})
+    return {"cards": [c.model_dump() for c in created]}
+
+
+# Generate flashcards from a study note
+@api_router.post("/flashcards/decks/{deck_id}/generate-from-notes/{note_id}")
+async def generate_from_notes(deck_id: str, note_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    note = await db.study_notes.find_one({"id": note_id, "user_id": user["id"]})
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    content = note.get("content") or note.get("text") or ""
+    _require_ai_client()
+    prompt = f"""Create 10-15 flashcards from the following study notes.
+Return ONLY valid JSON as an array of objects with "front" and "back" keys.
+Focus on key concepts, definitions, and important details.
+
+NOTES:
+{content[:4000]}"""
+    resp = await ai_complete("You are a strict JSON generator.", [{"role": "user", "content": prompt}], 4000)
+    text = ai_text(resp)
+    text = re.sub(r'^```(?:json)?\s*', '', text.strip())
+    text = re.sub(r'\s*```$', '', text)
+    try:
+        cards_data = json.loads(text)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI returned invalid JSON")
+    created = []
+    for c in cards_data:
+        obj = Flashcard(deck_id=deck_id, front=c.get("front", ""), back=c.get("back", ""))
+        doc = serialize_doc(obj.model_dump())
+        doc["user_id"] = user["id"]
+        await db.flashcards.insert_one(doc)
+        created.append(obj)
+    return {"cards": [c.model_dump() for c in created]}
+
+
+# Generate flashcards from a worksheet
+@api_router.post("/flashcards/decks/{deck_id}/generate-from-worksheet/{worksheet_id}")
+async def generate_from_worksheet(deck_id: str, worksheet_id: str, authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    deck = await db.flashcard_decks.find_one({"id": deck_id, "user_id": user["id"]})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    ws = await db.worksheets.find_one({"id": worksheet_id, "user_id": user["id"]})
+    if not ws:
+        raise HTTPException(status_code=404, detail="Worksheet not found")
+    questions = ws.get("questions") or []
+    created = []
+    for q in questions:
+        front = q.get("question", "")
+        answer = q.get("model_answer") or q.get("answer") or ""
+        if not front:
+            continue
+        obj = Flashcard(deck_id=deck_id, front=front, back=answer)
+        doc = serialize_doc(obj.model_dump())
+        doc["user_id"] = user["id"]
+        await db.flashcards.insert_one(doc)
+        created.append(obj)
+    return {"cards": [c.model_dump() for c in created]}
+
+
+# Get global due count for sidebar
+@api_router.get("/flashcards/due-count")
+async def due_count(authorization: Optional[str] = Header(None)):
+    user = await auth_module.get_current_user(authorization)
+    now = datetime.now(timezone.utc)
+    count = await db.flashcards.count_documents({"user_id": user["id"], "next_review": {"$lte": now}})
+    return {"count": count}
+
+
 # ---------- MOUNT ROUTER + MIDDLEWARE ----------
 app.include_router(api_router)
 
