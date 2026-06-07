@@ -2790,19 +2790,7 @@ async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization
     user = await auth_module.get_current_user(authorization)
     subject = await get_subject(req.subject_id, user["id"]) if req.subject_id else None
 
-    prompt = f"Generate a clear educational diagram of {req.topic} with numbered labels (1, 2, 3...) pointing to each key structure. Clean white background. No text labels — use numbers only. Suitable for a student to label from memory."
-    if subject:
-        prompt += f" Subject: {subject['name']}."
-
-    try:
-        image_url = await ai_image(prompt, model=req.image_model)
-        if not image_url:
-            raise HTTPException(status_code=502, detail="Image generation returned no URL")
-    except Exception as e:
-        logger.exception("Image generation failed")
-        raise HTTPException(status_code=502, detail=f"Image generation error: {str(e)}")
-
-    # Use AI to identify key structures for labels
+    # First: identify the key structures and their labels
     label_prompt = f"""Given the diagram topic "{req.topic}", identify the 4-8 key labelled structures that should appear.
 Return ONLY valid JSON as an array of objects:
 [{{"id": "1", "label": "Structure name", "expected": "correct answer"}}, ...]
@@ -2813,6 +2801,20 @@ Output MUST be valid parseable JSON."""
         labels = json.loads(re.sub(r'^```(?:json)?\s*|\s*```$', '', labels_raw.strip()))
     except Exception:
         labels = []
+
+    # Then: generate the image with specific numbered labels so image matches our label list
+    label_descriptions = "; ".join([f"{lbl['id']}: {lbl['label']}" for lbl in labels]) if labels else "key structures"
+    prompt = f"Generate a clear educational diagram of {req.topic}. Include exactly these numbered labels: {label_descriptions}. Draw each number clearly pointing to its structure. Clean white background. No text labels — use numbers only."
+    if subject:
+        prompt += f" Subject: {subject['name']}."
+
+    try:
+        image_url = await ai_image(prompt, model=req.image_model)
+        if not image_url:
+            raise HTTPException(status_code=502, detail="Image generation returned no URL")
+    except Exception as e:
+        logger.exception("Image generation failed")
+        raise HTTPException(status_code=502, detail=f"Image generation error: {str(e)}")
 
     exercise = DiagramExercise(
         subject_id=req.subject_id,

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, Cards, Image } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, Cards } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
 import { useTimer } from "@/context/TimerContext";
@@ -16,7 +16,8 @@ function SubjectGroup({ subject, sessions, worksheets, notes, blurtingExercises,
   const { refresh } = useSidebarData();
   const name = subject ? subject.name : "General";
   const groupId = subject ? subject.id : "general";
-  const total = sessions.length + worksheets.length + notes.length + blurtingExercises.length + diagramExercises.length;
+  const workspaceExercises = [...blurtingExercises, ...diagramExercises].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const total = sessions.length + worksheets.length + notes.length + workspaceExercises.length;
 
   const handleDeleteChat = async (e, s) => {
     e.stopPropagation();
@@ -160,34 +161,19 @@ function SubjectGroup({ subject, sessions, worksheets, notes, blurtingExercises,
             );
           })}
 
-          {blurtingExercises.map(ex => {
+          {workspaceExercises.map(ex => {
+            const isDiagram = !!ex.image_url;
             const isActive = false;
             return (
               <div
                 key={ex.id} onClick={() => navigate("/workspace")}
                 className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
-                data-testid={`sidebar-blurt-${ex.id}`}
+                data-testid={`sidebar-exercise-${ex.id}`}
               >
                 <Stack size={13} weight="regular" className="shrink-0 opacity-70" />
                 <span className="truncate flex-1">{ex.topic}</span>
-                <button onClick={(e) => handleDeleteBlurt(e, ex)} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} aria-label="Delete blurting exercise">
-                  <Trash size={12} weight="regular" />
-                </button>
-              </div>
-            );
-          })}
-
-          {diagramExercises.map(ex => {
-            const isActive = false;
-            return (
-              <div
-                key={ex.id} onClick={() => navigate("/workspace")}
-                className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
-                data-testid={`sidebar-diagram-${ex.id}`}
-              >
-                <Image size={13} weight="regular" className="shrink-0 opacity-70" />
-                <span className="truncate flex-1">{ex.topic}</span>
-                <button onClick={(e) => handleDeleteDiagram(e, ex)} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} aria-label="Delete diagram exercise">
+                {isDiagram && <span className="text-[10px] text-black/40 uppercase tracking-wider">Diagram</span>}
+                <button onClick={(e) => { e.stopPropagation(); if (isDiagram) handleDeleteDiagram(e, ex); else handleDeleteBlurt(e, ex); }} className={`opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity p-1 rounded-md ${isActive ? "hover:bg-white/15" : "hover:bg-black/10"}`} aria-label="Delete exercise">
                   <Trash size={12} weight="regular" />
                 </button>
               </div>
