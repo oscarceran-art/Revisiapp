@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Sparkle, NotePencil, Image, Stack } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useSidebarData } from "@/context/SidebarContext";
@@ -21,6 +21,7 @@ const MODES = [
 
 export default function RevisionWorkspacePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { subjects } = useSidebarData();
 
   const [mode, setMode] = useState("text");
@@ -42,6 +43,25 @@ export default function RevisionWorkspacePage() {
 
   // Diagram recall state
   const [diagramExercise, setDiagramExercise] = useState(null);
+
+  // Load exercise from sidebar click
+  useEffect(() => {
+    const ex = location.state?.loadExercise;
+    if (!ex) return;
+    window.history.replaceState({}, "");
+    setTopic(ex.topic || "");
+    setSubjectId(ex.subject_id || "");
+    if (ex.model_answer) {
+      setMode("text");
+      setExercise({ id: ex.id, model_answer: ex.model_answer, prompt: ex.prompt });
+      setKeyPoints(ex.key_points || []);
+      if (ex.student_recall) setRecall(ex.student_recall);
+      if (ex.feedback) setFeedback(ex.feedback);
+    } else if (ex.image_url) {
+      setMode("diagram");
+      setDiagramExercise(ex);
+    }
+  }, []);
 
   const handleGenerate = async () => {
     if (!topic.trim()) { toast.error("Enter a topic"); return; }

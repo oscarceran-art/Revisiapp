@@ -166,7 +166,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, blurtingExercises,
             const isActive = false;
             return (
               <div
-                key={ex.id} onClick={() => navigate("/workspace")}
+                key={ex.id} onClick={() => navigate("/workspace", { state: { loadExercise: ex } })}
                 className={`group/item cursor-pointer text-[14px] pl-3 pr-2 py-2 rounded-xl flex items-center gap-2 transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/85"}`}
                 data-testid={`sidebar-exercise-${ex.id}`}
               >
