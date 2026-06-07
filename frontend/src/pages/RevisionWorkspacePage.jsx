@@ -67,7 +67,7 @@ export default function RevisionWorkspacePage() {
       setDiagramExercise(ex);
       const labels = ex.labels || [];
       const labelMap = {};
-      labels.forEach(l => { labelMap[l.label] = ""; });
+      labels.forEach((l, i) => { labelMap[String(i + 1)] = ""; });
       setDiagramLabels(labelMap);
       if (ex.student_labels) setDiagramLabels(ex.student_labels);
       if (ex.feedback) setDiagramFeedback(ex.feedback);
@@ -91,7 +91,7 @@ export default function RevisionWorkspacePage() {
         setDiagramExercise(res.exercise);
         const labels = res.exercise.labels || [];
         const labelMap = {};
-        labels.forEach(l => { labelMap[l.label] = ""; });
+        labels.forEach((l, i) => { labelMap[String(i + 1)] = ""; });
         setDiagramLabels(labelMap);
       }
       toast.success("Content generated!");
@@ -354,13 +354,13 @@ export default function RevisionWorkspacePage() {
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        {(diagramExercise.labels || []).map(lbl => (
-                          <div key={lbl.label} className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-black/60 min-w-[90px]">{lbl.label}:</span>
+                        {(diagramExercise.labels || []).map((lbl, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-xs font-bold w-5 h-5 rounded-full bg-black/10 flex items-center justify-center shrink-0">{i + 1}</span>
                             <input
-                              value={diagramLabels[lbl.label] || ""}
-                              onChange={e => setDiagramLabels(prev => ({ ...prev, [lbl.label]: e.target.value }))}
-                              placeholder="?"
+                              value={diagramLabels[String(i + 1)] || ""}
+                              onChange={e => setDiagramLabels(prev => ({ ...prev, [String(i + 1)]: e.target.value }))}
+                              placeholder="Type the structure name..."
                               className="flex-1 border border-black/15 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-black"
                             />
                           </div>
@@ -378,12 +378,12 @@ export default function RevisionWorkspacePage() {
                       <div className="text-xs text-black/50">{diagramFeedback.correct}/{diagramFeedback.total} correct</div>
                       {Object.keys(diagramFeedback.incorrect_labels || {}).length > 0 && (
                         <div>
-                          <div className="text-[11px] uppercase tracking-[0.22em] text-red-500 mb-1">Incorrect</div>
+                          <div className="text-[11px] uppercase tracking-[0.22em] text-red-500 mb-1">Unmatched</div>
                           {Object.entries(diagramFeedback.incorrect_labels).map(([label, data]) => (
                             <div key={label} className="flex items-center gap-2 text-xs mb-1">
-                              <span className="font-bold">{label}:</span>
-                              <span className="text-red-500 line-through">{data.student}</span>
-                              <span className="text-green-600">→ {data.expected}</span>
+                              <span className="font-bold">{label}</span>
+                              <span className="text-red-500">"{data.student}"</span>
+                              {data.expected !== "—" && <span className="text-green-600">→ "{data.expected}"</span>}
                             </div>
                           ))}
                         </div>

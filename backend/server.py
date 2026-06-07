@@ -2882,30 +2882,41 @@ async def workspace_check_diagram(req: CheckDiagramRequest, authorization: Optio
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercise not found")
 
-    expected = {lbl.get("label"): lbl.get("expected", "") for lbl in (exercise.get("labels") or [])}
-    correct = {}
-    incorrect = {}
-    missing = []
-    for lid, expected_answer in expected.items():
-        student_answer = req.labels.get(lid, "").strip()
-        if not student_answer:
-            missing.append(lid)
-            continue
-        if student_answer.lower() == expected_answer.lower():
-            correct[lid] = student_answer
-        else:
-            incorrect[lid] = {"student": student_answer, "expected": expected_answer}
+    expected_list = [lbl.get("expected", "") for lbl in (exercise.get("labels") or [])]
+    student_list = [v.strip() for v in req.labels.values() if v.strip()]
 
-    total = len(expected)
-    correct_count = len(correct)
+    correct_count = 0
+    correct_labels = []
+    incorrect_labels = {}
+    used_expected = set()
+    used_student = set()
+
+    for si, student_ans in enumerate(student_list):
+        for ei, expected_ans in enumerate(expected_list):
+            if ei in used_expected:
+                continue
+            if student_ans.lower() == expected_ans.lower():
+                correct_count += 1
+                correct_labels.append(student_ans)
+                used_expected.add(ei)
+                used_student.add(si)
+                break
+
+    for si, student_ans in enumerate(student_list):
+        if si not in used_student:
+            incorrect_labels[f"#{si + 1}"] = {"student": student_ans, "expected": "—"}
+
+    missing = [f"#{ei + 1}" for ei in range(len(expected_list)) if ei not in used_expected]
+
+    total = len(expected_list)
     score = round((correct_count / total) * 100) if total > 0 else 0
 
     feedback = {
         "score": score,
         "correct": correct_count,
         "total": total,
-        "correct_labels": correct,
-        "incorrect_labels": incorrect,
+        "correct_labels": correct_labels,
+        "incorrect_labels": incorrect_labels,
         "missing_labels": missing,
     }
 
