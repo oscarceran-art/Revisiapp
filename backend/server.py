@@ -140,7 +140,7 @@ def _normalise_image_model(model: Optional[str] = None) -> str:
     return candidate if candidate in IMAGE_MODELS else DEFAULT_IMAGE_MODEL
 
 
-async def ai_image(prompt: str, model: Optional[str] = None) -> str:
+async def ai_image(prompt: str, model: Optional[str] = None, quality: Optional[str] = None) -> str:
     _require_ai_client()
     cfg = IMAGE_MODELS[_normalise_image_model(model)]
     kwargs: dict = {
@@ -149,7 +149,9 @@ async def ai_image(prompt: str, model: Optional[str] = None) -> str:
         "n": 1,
         "size": cfg["size"],
     }
-    if cfg.get("quality"):
+    if quality:
+        kwargs["quality"] = quality
+    elif cfg.get("quality"):
         kwargs["quality"] = cfg["quality"]
     resp = await openai_client.images.generate(**kwargs)
     if resp.data and resp.data[0].url:
@@ -2727,6 +2729,7 @@ class WorkspaceDiagramRequest(BaseModel):
     subject_id: Optional[str] = None
     topic: str
     image_model: Optional[str] = None
+    quality: Optional[str] = None
 
 
 class CheckRecallRequest(BaseModel):
@@ -2795,7 +2798,7 @@ async def workspace_generate_diagram(req: WorkspaceDiagramRequest, authorization
         prompt += f" Subject: {subject['name']}."
 
     try:
-        image_url = await ai_image(prompt, model=req.image_model)
+        image_url = await ai_image(prompt, model=req.image_model, quality=req.quality)
         if not image_url:
             raise HTTPException(status_code=502, detail="Image generation returned no URL")
     except Exception as e:

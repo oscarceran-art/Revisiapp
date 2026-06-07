@@ -31,6 +31,7 @@ export default function RevisionWorkspacePage() {
   const [topic, setTopic] = useState("");
   const [textModel, setTextModel] = useState(null);
   const [imageModel, setImageModel] = useState("gpt-image-1");
+  const [imageQuality, setImageQuality] = useState("standard");
   const [generating, setGenerating] = useState(false);
 
   // Text recall state
@@ -76,7 +77,7 @@ export default function RevisionWorkspacePage() {
         setKeyPoints(res.key_points || []);
       }
       if (mode === "diagram" || mode === "mixed") {
-        const res = await workspaceGenerateDiagram({ subject_id: subjectId || null, topic: topic.trim(), image_model: imageModel });
+        const res = await workspaceGenerateDiagram({ subject_id: subjectId || null, topic: topic.trim(), image_model: imageModel, quality: imageQuality });
         setDiagramExercise(res.exercise);
       }
       toast.success("Content generated!");
@@ -173,14 +174,24 @@ export default function RevisionWorkspacePage() {
             )}
 
             {showDiagramMode && (
-              <div>
-                <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Image model</label>
-                <select value={imageModel} onChange={e => setImageModel(e.target.value)}
-                  className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
-                  {Object.entries(IMAGE_MODELS).map(([key, m]) => (
-                    <option key={key} value={key}>{m.label} — {m.desc}</option>
-                  ))}
-                </select>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Image model</label>
+                  <select value={imageModel} onChange={e => setImageModel(e.target.value)}
+                    className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
+                    {Object.entries(IMAGE_MODELS).map(([key, m]) => (
+                      <option key={key} value={key}>{m.label} — {m.desc}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] uppercase tracking-[0.22em] text-black/50 block mb-2">Quality</label>
+                  <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}
+                    className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
+                    <option value="standard">Standard — faster, lower cost</option>
+                    <option value="hd">HD — finer detail, higher cost</option>
+                  </select>
+                </div>
               </div>
             )}
 
