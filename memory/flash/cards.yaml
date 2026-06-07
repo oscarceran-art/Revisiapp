@@ -1,0 +1,13 @@
+cards:
+  - question: "Sample Question 1"
+    answer: "Sample Answer 1"
+    last_review: "2026-06-01"
+    next_review: "2026-06-08"
+    interval: 7
+    ease_factor: 2.5
+  - question: "Sample Question 2"
+    answer: "Sample Answer 2"
+    last_review: "2026-06-02"
+    next_review: "2026-06-15"
+    interval: 14
+    ease_factor: 2.0
