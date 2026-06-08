@@ -2882,42 +2882,37 @@ async def workspace_check_diagram(req: CheckDiagramRequest, authorization: Optio
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercise not found")
 
-    expected_list = [lbl.get("expected", "") for lbl in (exercise.get("labels") or [])]
-    student_list = [v.strip() for v in req.labels.values() if v.strip()]
+    expected = [lbl.get("expected", "") for lbl in (exercise.get("labels") or [])]
+    expected_lower = [e.lower() for e in expected]
+    student = [v.strip() for v in req.labels.values() if v.strip()]
 
+    used = set()
+    incorrect = []
     correct_count = 0
-    correct_labels = []
-    incorrect_labels = {}
-    used_expected = set()
-    used_student = set()
-
-    for si, student_ans in enumerate(student_list):
-        for ei, expected_ans in enumerate(expected_list):
-            if ei in used_expected:
+    for s in student:
+        sl = s.lower()
+        matched = False
+        for ei, el in enumerate(expected_lower):
+            if ei in used:
                 continue
-            if student_ans.lower() == expected_ans.lower():
+            if sl == el:
                 correct_count += 1
-                correct_labels.append(student_ans)
-                used_expected.add(ei)
-                used_student.add(si)
+                used.add(ei)
+                matched = True
                 break
+        if not matched:
+            incorrect.append(s)
 
-    for si, student_ans in enumerate(student_list):
-        if si not in used_student:
-            incorrect_labels[f"#{si + 1}"] = {"student": student_ans, "expected": "—"}
-
-    missing = [f"#{ei + 1}" for ei in range(len(expected_list)) if ei not in used_expected]
-
-    total = len(expected_list)
+    total = len(expected)
     score = round((correct_count / total) * 100) if total > 0 else 0
+    missing = [expected[ei] for ei in range(total) if ei not in used]
 
     feedback = {
         "score": score,
         "correct": correct_count,
         "total": total,
-        "correct_labels": correct_labels,
-        "incorrect_labels": incorrect_labels,
-        "missing_labels": missing,
+        "incorrect": incorrect,
+        "missing": missing,
     }
 
     await db.diagram_exercises.update_one(

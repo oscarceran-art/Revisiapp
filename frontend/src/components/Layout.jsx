@@ -162,7 +162,7 @@ function SubjectGroup({ subject, sessions, worksheets, notes, blurtingExercises,
           })}
 
           {workspaceExercises.map(ex => {
-            const isDiagram = !!ex.image_url;
+            const isDiagram = "image_url" in ex;
             const isActive = false;
             return (
               <div
