@@ -335,6 +335,7 @@ class UserLimitUpdate(BaseModel):
     token_limit_weekly: Optional[int] = None
     is_active: Optional[bool] = None
     is_admin: Optional[bool] = None
+    password: Optional[str] = None
 
 
 # ---------- HELPERS ----------
@@ -440,6 +441,8 @@ async def admin_update_user(user_id: str, payload: UserLimitUpdate, authorizatio
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="Nothing to update")
+    if "password" in updates:
+        updates["password_hash"] = auth_module.hash_password(updates.pop("password"))
     await db.users.update_one({"id": user_id}, {"$set": updates})
     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     return user

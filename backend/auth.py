@@ -12,10 +12,12 @@ SECRET = "revisiapp-secret-key-change-in-prod-2024"   # used to sign session tok
 ADMIN_USERNAME = "oscar"                               # your admin account
 
 # ── tiny password hashing (no bcrypt dep needed) ─────────────────────────────
-def _hash_password(password: str) -> str:
+def hash_password(password: str) -> str:
     salt = os.urandom(16).hex()
     h = hmac.new(SECRET.encode(), (salt + password).encode(), hashlib.sha256).hexdigest()
     return f"{salt}:{h}"
+
+_hash_password = hash_password
 
 def _verify_password(password: str, stored: str) -> bool:
     try:

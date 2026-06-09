@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { adminListUsers, adminUpdateUser, adminDeleteUser, adminCreateUser, adminResetTokens } from "@/lib/api";
 import { toast } from "sonner";
-import { Users, Trash, Plus, ArrowLeft, ArrowClockwise, ToggleLeft, ToggleRight, ShieldCheck, PencilSimple, Check, X } from "@phosphor-icons/react";
+import { Users, Trash, Plus, ArrowLeft, ArrowClockwise, ToggleLeft, ToggleRight, ShieldCheck, PencilSimple, Check, X, Key, Star } from "@phosphor-icons/react";
 
 function TokenBar({ used, limit }) {
   if (!limit) return <span className="text-[12px] text-black/40">Unlimited</span>;
@@ -55,6 +55,8 @@ export default function AdminPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newUser, setNewUser] = useState({ username: "", password: "" });
   const [creating, setCreating] = useState(false);
+  const [passwordModal, setPasswordModal] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -92,6 +94,16 @@ export default function AdminPage() {
       setUsers(us => us.map(x => x.id === u.id ? { ...x, tokens_used_today: 0, tokens_used_week: 0 } : x));
       toast.success(`Reset tokens for ${u.username}`);
     } catch { toast.error("Failed"); }
+  };
+
+  const changePassword = async () => {
+    if (!passwordModal || !newPassword.trim()) return;
+    try {
+      await adminUpdateUser(passwordModal.id, { password: newPassword.trim() });
+      toast.success(`Password changed for ${passwordModal.username}`);
+      setPasswordModal(null);
+      setNewPassword("");
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
   };
 
   const handleCreate = async () => {
@@ -224,6 +236,20 @@ export default function AdminPage() {
                 {/* Actions */}
                 <div className="flex flex-col gap-1.5 shrink-0">
                   <button
+                    onClick={() => update(u.id, { is_admin: !u.is_admin })}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[12px] font-semibold border border-black/15 hover:bg-black/[0.04] transition-colors"
+                  >
+                    {u.is_admin
+                      ? <><Star size={13} weight="fill" className="text-yellow-500" /> Demote admin</>
+                      : <><ShieldCheck size={13} className="text-black/40" /> Make admin</>}
+                  </button>
+                  <button
+                    onClick={() => { setPasswordModal(u); setNewPassword(""); }}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[12px] font-semibold border border-black/15 hover:bg-black/[0.04] transition-colors"
+                  >
+                    <Key size={13} weight="bold" /> Change password
+                  </button>
+                  <button
                     onClick={() => update(u.id, { is_active: !u.is_active })}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[12px] font-semibold border border-black/15 hover:bg-black/[0.04] transition-colors"
                   >
@@ -251,6 +277,33 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* Password change modal */}
+      {passwordModal && (
+        <div className="fixed inset-0 z-50 bg-black/20 flex items-center justify-center" onClick={() => setPasswordModal(null)}>
+          <div className="bg-white rounded-3xl p-6 shadow-xl max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-[16px] font-bold mb-1">Change password</h3>
+            <p className="text-[13px] text-black/45 mb-4">{passwordModal.username}</p>
+            <input
+              autoFocus
+              type="password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") changePassword(); }}
+              className="w-full px-4 py-2.5 rounded-2xl text-[14px] border border-black/15 outline-none focus:border-black/40 bg-[#FAF8F5] mb-4"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setPasswordModal(null)} className="px-4 py-2 rounded-2xl border border-black/15 text-[13px] font-semibold hover:bg-black/[0.04]">
+                Cancel
+              </button>
+              <button onClick={changePassword} className="px-4 py-2 rounded-2xl bg-black text-white text-[13px] font-semibold hover:opacity-90">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
