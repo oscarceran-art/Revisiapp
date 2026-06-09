@@ -54,12 +54,6 @@ export default function usePageAgent() {
       const { PageAgent } = await import("page-agent");
       if (!mounted) return;
 
-      const raw = localStorage.getItem("revisiapp_auth");
-      let token = "";
-      try {
-        token = JSON.parse(raw || "{}").token || "";
-      } catch {}
-
       const agent = new PageAgent({
         baseURL: `${BACKEND_URL}/api/ai`,
         model: "gpt-5.4-nano",
@@ -69,10 +63,13 @@ export default function usePageAgent() {
         enableMask: false,
         maxSteps: 8,
         temperature: 0.0,
-        customFetch: async (url, init) => {
+        customFetch: async (_url, init) => {
+          const raw = localStorage.getItem("revisiapp_auth");
+          let token = "";
+          try { token = JSON.parse(raw || "{}").token || ""; } catch {}
           const headers = new Headers(init.headers);
           if (token) headers.set("Authorization", `Bearer ${token}`);
-          return fetch(url, { ...init, headers });
+          return fetch(`${BACKEND_URL}/api/ai/chat/completions`, { ...init, headers });
         },
         instructions: {
           getPageInstructions: (url) => getRouteInstructions(url),
