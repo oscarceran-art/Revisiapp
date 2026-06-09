@@ -4,6 +4,7 @@ import { ArrowLeft, Sparkle, NotePencil, Image, Stack } from "@phosphor-icons/re
 import { toast } from "sonner";
 import { useSidebarData } from "@/context/SidebarContext";
 import ModelSelector from "@/components/ModelSelector";
+import Markdown from "@/components/Markdown";
 import { workspaceGenerateText, workspaceGenerateDiagram, workspaceCheckRecall, workspaceCheckDiagram } from "@/lib/api";
 
 const IMAGE_MODELS = {
@@ -273,10 +274,10 @@ export default function RevisionWorkspacePage() {
                       </button>
                     </div>
                     {!contentHidden ? (
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap">{exercise.model_answer}</div>
+                      <div className="text-sm leading-relaxed"><Markdown text={exercise.model_answer} /></div>
                     ) : (
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap select-none blur-sm cursor-pointer" onClick={() => setContentHidden(false)}>
-                        {exercise.model_answer}
+                      <div className="text-sm leading-relaxed select-none blur-sm cursor-pointer" onClick={() => setContentHidden(false)}>
+                        <Markdown text={exercise.model_answer} />
                       </div>
                     )}
                     {keyPoints.length > 0 && !contentHidden && (

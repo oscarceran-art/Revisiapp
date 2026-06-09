@@ -368,7 +368,8 @@ def build_system_message(subject: Optional[dict]) -> str:
         "You are a patient, encouraging revision tutor for a single student. "
         "Explain concepts clearly with short paragraphs, simple examples, and use "
         "headings/bullets when helpful. Ask the student questions occasionally to "
-        "check understanding. Keep answers focused and practical."
+        "check understanding. Keep answers focused and practical. "
+        "Use LaTeX notation ($...$) for any mathematical expressions or formulas."
     )
     if subject:
         ctx = f"\n\nThe current revision subject is: {subject['name']}."
@@ -2758,7 +2759,7 @@ async def workspace_generate_text(req: WorkspaceTextRequest, authorization: Opti
     parts = [
         f"You are generating a realistic exam-style question and model answer on: \"{req.topic}\".",
         "Generate ONE specific question that would realistically appear in an exam.",
-        "Then provide a concise model answer (2-6 sentences, exam-style).",
+        "Then provide a concise model answer (2-6 sentences, exam-style). Use LaTeX notation ($...$) for math.",
         "Format as JSON:",
         '{ "question": "...", "answer": "...", "key_points": ["...", "..."] }',
         "Keep answers concise and realistic. No essays. Output ONLY valid JSON.",
@@ -2845,7 +2846,7 @@ async def workspace_check_recall(req: CheckRecallRequest, authorization: Optiona
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercise not found")
 
-    prompt = f"""You are an examiner. Compare the student's recall against the model answer.
+    prompt = f"""You are an examiner. Compare the student's recall against the model answer. Use LaTeX notation ($...$) for math.
 
 Model answer:
 {exercise.get("model_answer", "")}

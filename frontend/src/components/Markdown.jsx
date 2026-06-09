@@ -1,10 +1,11 @@
-// Tiny markdown-ish renderer: handles headings, bold, italics, code, lists, line breaks.
-// Avoids adding a heavy markdown dependency.
 import React from "react";
+import katex from "katex";
 
 function inline(text) {
-  // Escape HTML
-  let t = text
+  let t = text;
+  // If this text came from block math processing, keep it as-is
+  // Escape HTML first
+  t = t
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
@@ -19,7 +20,36 @@ function inline(text) {
 
 export default function Markdown({ text }) {
   if (!text) return null;
-  const lines = text.split(/\n/);
+
+  // First render all math to safe placeholders
+  const mathBlocks = [];
+  let processed = text;
+
+  // Block math $$...$$
+  processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {
+    const idx = mathBlocks.length;
+    try {
+      const html = katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false });
+      mathBlocks.push(html);
+    } catch {
+      mathBlocks.push(`<div class="text-red-500 text-xs">[Math error: ${expr.trim()}]</div>`);
+    }
+    return `\nMATHBLOCK${idx}\n`;
+  });
+
+  // Inline math $...$
+  processed = processed.replace(/\$([^\s$][^$]*?[^\s$])\$/g, (_, expr) => {
+    const idx = mathBlocks.length;
+    try {
+      const html = katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false });
+      mathBlocks.push(html);
+    } catch {
+      mathBlocks.push(`<span class="text-red-500 text-xs">[Math error: ${expr.trim()}]</span>`);
+    }
+    return `MATHINLINE${idx}`;
+  });
+
+  const lines = processed.split(/\n/);
   const blocks = [];
   let listBuf = [];
   let listType = null;
@@ -30,7 +60,7 @@ export default function Markdown({ text }) {
     blocks.push(
       <Tag key={`list-${blocks.length}`}>
         {listBuf.map((item, i) => (
-          <li key={i} dangerouslySetInnerHTML={{ __html: inline(item) }} />
+          <li key={i} dangerouslySetInnerHTML={{ __html: restoreMath(inline(item), mathBlocks) }} />
         ))}
       </Tag>
     );
@@ -40,13 +70,23 @@ export default function Markdown({ text }) {
 
   lines.forEach((raw, i) => {
     const line = raw.trimEnd();
+
+    // Restore block math lines
+    const trimmed = line.trim();
+    const bm = trimmed.match(/^MATHBLOCK(\d+)$/);
+    if (bm) {
+      flushList();
+      blocks.push(<div key={`m-${i}`} dangerouslySetInnerHTML={{ __html: mathBlocks[parseInt(bm[1])] }} />);
+      return;
+    }
+
     if (/^\s*$/.test(line)) { flushList(); return; }
     let m;
     if ((m = line.match(/^(#{1,3})\s+(.*)$/))) {
       flushList();
       const level = m[1].length;
       const H = `h${level}`;
-      blocks.push(React.createElement(H, { key: `h-${i}`, dangerouslySetInnerHTML: { __html: inline(m[2]) } }));
+      blocks.push(React.createElement(H, { key: `h-${i}`, dangerouslySetInnerHTML: { __html: restoreMath(inline(m[2]), mathBlocks) } }));
       return;
     }
     if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
@@ -62,8 +102,13 @@ export default function Markdown({ text }) {
       return;
     }
     flushList();
-    blocks.push(<p key={`p-${i}`} dangerouslySetInnerHTML={{ __html: inline(line) }} />);
+    blocks.push(<p key={`p-${i}`} dangerouslySetInnerHTML={{ __html: restoreMath(inline(line), mathBlocks) }} />);
   });
   flushList();
   return <div className="prose-chat">{blocks}</div>;
+}
+
+function restoreMath(html, mathBlocks) {
+  // Replace MATHINLINE0, MATHINLINE1 etc. with rendered math
+  return html.replace(/MATHINLINE(\d+)/g, (_, idx) => mathBlocks[parseInt(idx)] || "");
 }
