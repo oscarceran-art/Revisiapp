@@ -2963,22 +2963,18 @@ async def workspace_delete_diagram(exercise_id: str, authorization: Optional[str
 
 
 # ---------- AI PROXY (for Page Agent) ----------
+OPENAI_FWD = {"model", "messages", "max_tokens", "max_completion_tokens", "temperature",
+              "top_p", "n", "stream", "stop", "presence_penalty", "frequency_penalty",
+              "logit_bias", "user", "tools", "tool_choice", "response_format", "seed"}
+
 @api_router.post("/ai/chat/completions")
 async def ai_chat_completions(body: dict, authorization: Optional[str] = Header(None)):
     _require_ai_client()
     user = await auth_module.get_current_user(authorization)
-    messages = body.get("messages", [])
-    if not messages:
-        raise HTTPException(status_code=400, detail="No messages")
-    max_tokens = body.get("max_tokens", 1024)
-    temperature = body.get("temperature", 0.0)
+    kwargs = {k: v for k, v in body.items() if k in OPENAI_FWD}
+    kwargs["model"] = DEFAULT_AI_MODEL
     try:
-        resp = await openai_client.chat.completions.create(
-            model=DEFAULT_AI_MODEL,
-            messages=messages,
-            max_completion_tokens=max_tokens,
-            temperature=temperature,
-        )
+        resp = await openai_client.chat.completions.create(**kwargs)
         return resp.model_dump()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI proxy error: {str(e)}")
