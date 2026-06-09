@@ -46,6 +46,7 @@ export default function usePageAgent() {
   const [status, setStatus] = useState("idle");
   const [activity, setActivity] = useState(null);
   const [lastResult, setLastResult] = useState(null);
+  const [, forceRender] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -84,6 +85,9 @@ export default function usePageAgent() {
       });
 
       agentRef.current = agent;
+
+      // Force re-render so the hook returns the agent object (constructor fires no event)
+      forceRender(n => n + 1);
 
       // Remove the native Panel's stop/close button so it can't dispose the agent
       requestAnimationFrame(() => {
