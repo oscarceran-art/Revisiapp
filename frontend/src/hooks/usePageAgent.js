@@ -59,10 +59,9 @@ export default function usePageAgent() {
         model: "gpt-5.4-nano",
         apiKey: "dummy",
         language: "en-US",
-        enablePanel: false,
-        enableMask: false,
-        maxSteps: 8,
+        maxSteps: 6,
         temperature: 0.0,
+        promptForNextTask: false,
         customFetch: async (_url, init) => {
           const raw = localStorage.getItem("revisiapp_auth");
           let token = "";
@@ -85,6 +84,12 @@ export default function usePageAgent() {
       });
 
       agentRef.current = agent;
+
+      // Remove the native Panel's stop/close button so it can't dispose the agent
+      requestAnimationFrame(() => {
+        const stopBtn = agent.panel?.wrapper?.querySelector('button[title="Close"]');
+        if (stopBtn) stopBtn.remove();
+      });
     }
 
     init();

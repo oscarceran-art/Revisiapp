@@ -6,7 +6,7 @@ import { TimerProvider } from "@/context/TimerContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Layout from "@/components/Layout";
 import FloatingTimer from "@/components/FloatingTimer";
-import AIAssistant from "@/components/AIAssistant";
+import AssistantToggle from "@/components/AssistantToggle";
 import ChatPage from "@/pages/ChatPage";
 import ChatStarterPage from "@/pages/ChatStarterPage";
 import SubjectsPage from "@/pages/SubjectsPage";
@@ -80,7 +80,7 @@ function App() {
           <TimerProvider>
             <AppRoutes />
             <FloatingTimer />
-            <AIAssistant />
+            <AssistantToggle />
           </TimerProvider>
         </SidebarProvider>
       </AuthProvider>
