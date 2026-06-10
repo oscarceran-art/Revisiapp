@@ -63,6 +63,10 @@ export default function usePageAgent() {
         maxSteps: 6,
         temperature: 0.0,
         promptForNextTask: false,
+        instructions: {
+          system: "IMPORTANT: Never use LaTeX math notation (e.g. $\\Delta H$, $E=mc^2$, $$...$$). Describe mathematical expressions, formulas, and symbols in plain text using words (e.g. 'delta H' for enthalpy change, 'E equals m c squared').",
+          getPageInstructions: (url) => getRouteInstructions(url),
+        },
         customFetch: async (_url, init) => {
           const raw = localStorage.getItem("revisiapp_auth");
           let token = "";
@@ -70,9 +74,6 @@ export default function usePageAgent() {
           const headers = new Headers(init.headers);
           if (token) headers.set("Authorization", `Bearer ${token}`);
           return fetch(`${BACKEND_URL}/api/ai/chat/completions`, { ...init, headers });
-        },
-        instructions: {
-          getPageInstructions: (url) => getRouteInstructions(url),
         },
       });
 

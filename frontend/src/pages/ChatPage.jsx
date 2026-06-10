@@ -396,10 +396,10 @@ export default function ChatPage() {
                 )}
                 <div className="bg-white border border-black/10 rounded-3xl rounded-tl-md px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] streaming-bubble">
                   {streamingText ? (
-                    <div className="whitespace-pre-wrap leading-relaxed break-words">
-                      {streamingText}
+                    <>
+                      <Markdown text={streamingText} />
                       <span className="stream-cursor" />
-                    </div>
+                    </>
                   ) : (
                     <span className="inline-flex gap-1 text-black/40">
                       <span className="w-1.5 h-1.5 bg-black/40 rounded-full animate-pulse" />
