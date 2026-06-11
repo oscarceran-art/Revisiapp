@@ -82,7 +82,7 @@ export default function ExamsPage() {
       const session = await startExamDebrief(exam.id);
       celebrateBig();
       await refresh();
-      toast.success(`You did it â€” let's talk about ${exam.name}`);
+      toast.success(`You did it — let's talk about ${exam.name}`);
       navigate(`/chat/${session.id}`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Couldn't start debrief");
@@ -106,7 +106,7 @@ export default function ExamsPage() {
               <CalendarBlank size={12} weight="fill" /> Exam dates
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl mt-2 font-extrabold">Countdowns</h1>
-            <p className="text-black/55 mt-2 text-sm sm:text-base">Add every exam â€” we'll keep the days ticking down and build a revision plan whenever you're ready.</p>
+            <p className="text-black/55 mt-2 text-sm sm:text-base">Add every exam — we'll keep the days ticking down and build a revision plan whenever you're ready.</p>
           </div>
           <button
             onClick={() => setShowForm(s => !s)}
@@ -182,7 +182,7 @@ export default function ExamsPage() {
                 className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 hover:opacity-90 disabled:opacity-50 active:scale-[0.98]"
                 data-testid="exam-save"
               >
-                <Sparkle size={14} weight="fill" /> {saving ? "Savingâ€¦" : "Save exam"}
+                <Sparkle size={14} weight="fill" /> {saving ? "Saving…" : "Save exam"}
               </button>
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function ExamsPage() {
               {upcoming.map(e => {
                 const days = daysBetween(e.exam_date);
                 return (
-                  <div key={e.id} className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4" data-testid={`exam-${e.id}`}>
+                  <div key={e.id} className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4" data-testid={`exam-${e.id}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <CountdownBadge days={days} />

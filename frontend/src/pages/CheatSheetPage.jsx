@@ -26,7 +26,7 @@ export default function CheatSheetPage() {
     })();
   }, [id, navigate]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-black/40">Building your cheat sheetâ€¦</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-black/40">Building your cheat sheet…</div>;
   if (!cs) return null;
 
   return (
@@ -62,7 +62,7 @@ export default function CheatSheetPage() {
                 </div>
                 <ul className="space-y-2 text-[15px] leading-relaxed">
                   {cs.tips.map((t, i) => (
-                    <li key={i} className="flex gap-2.5"><span className="text-black/40">â†’</span><span>{t}</span></li>
+                    <li key={i} className="flex gap-2.5"><span className="text-black/40">→</span><span>{t}</span></li>
                   ))}
                 </ul>
               </div>

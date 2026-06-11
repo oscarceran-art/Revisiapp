@@ -17,6 +17,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Handle 401 responses — clear auth and redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("revisiapp_auth");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Subjects
 export const listSubjects = () => api.get("/subjects").then(r => r.data);
 export const createSubject = (data) => api.post("/subjects", data).then(r => r.data);

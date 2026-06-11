@@ -193,7 +193,7 @@ export default function WorksheetGeneratorPage() {
                 data-testid="generate-worksheet-btn"
               >
                 <Sparkle size={16} weight="fill" />
-                {generating ? "Generatingâ€¦" : "Generate worksheet"}
+                {generating ? "Generating…" : "Generate worksheet"}
               </button>
             </>
           ) : (
@@ -285,7 +285,7 @@ export default function WorksheetGeneratorPage() {
                 data-testid="import-pastpaper-btn"
               >
                 <UploadSimple size={16} weight="regular" />
-                {generating ? "Importingâ€¦" : "Import as worksheet"}
+                {generating ? "Importing…" : "Import as worksheet"}
               </button>
             </>
           )}

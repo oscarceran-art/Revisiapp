@@ -211,7 +211,7 @@ export default function RevisionWorkspacePage() {
                   <select value={imageModel} onChange={e => setImageModel(e.target.value)}
                     className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
                     {Object.entries(IMAGE_MODELS).map(([key, m]) => (
-                      <option key={key} value={key}>{m.label} â€” {m.desc}</option>
+                      <option key={key} value={key}>{m.label} — {m.desc}</option>
                     ))}
                   </select>
                 </div>
@@ -220,9 +220,9 @@ export default function RevisionWorkspacePage() {
                   <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}
                     className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
                     <option value="auto">Auto</option>
-                    <option value="low">Low â€” fastest</option>
-                    <option value="medium">Medium â€” balanced</option>
-                    <option value="high">High â€” best quality</option>
+                    <option value="low">Low — fastest</option>
+                    <option value="medium">Medium — balanced</option>
+                    <option value="high">High — best quality</option>
                   </select>
                 </div>
                 <div>

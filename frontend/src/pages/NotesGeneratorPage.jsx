@@ -108,7 +108,7 @@ export default function NotesGeneratorPage() {
             data-testid="generate-notes-btn"
           >
             <Sparkle size={16} weight="fill" />
-            {generating ? "Writing notesâ€¦" : "Generate notes"}
+            {generating ? "Writing notes…" : "Generate notes"}
           </button>
         </div>
       </div>

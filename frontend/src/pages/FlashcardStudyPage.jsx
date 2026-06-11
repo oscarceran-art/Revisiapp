@@ -184,7 +184,7 @@ export default function FlashcardStudyPage() {
 
             <div
               onClick={() => setFlipped(!flipped)}
-              className="bg-white border border-black/10 rounded-3xl p-5 sm:p-12 min-h-[280px] flex items-center justify-center cursor-pointer hover:border-black/20 transition-colors select-none"
+              className="bg-white border border-black/10 rounded-3xl p-8 sm:p-12 min-h-[280px] flex items-center justify-center cursor-pointer hover:border-black/20 transition-colors select-none"
             >
               <div className="text-center">
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/30 mb-4">

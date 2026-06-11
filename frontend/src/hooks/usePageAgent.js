@@ -97,12 +97,14 @@ export default function usePageAgent() {
       });
     }
 
-    init();
+    init().catch(err => console.error("usePageAgent init failed:", err));
 
     return () => {
       mounted = false;
-      agentRef.current?.dispose();
-      agentRef.current = null;
+      if (agentRef.current) {
+        try { agentRef.current.dispose(); } catch {}
+        agentRef.current = null;
+      }
     };
   }, []);
 

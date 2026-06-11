@@ -53,7 +53,7 @@ export default function HomePage() {
                 </div>
                 <h2 className="display text-2xl md:text-3xl mt-1.5">Exam countdown</h2>
               </div>
-              <button onClick={() => navigate("/exams")} className="text-sm text-black/55 hover:text-black underline underline-offset-4">All exams â†’</button>
+              <button onClick={() => navigate("/exams")} className="text-sm text-black/55 hover:text-black underline underline-offset-4">All exams →</button>
             </div>
             <div className="grid sm:grid-cols-3 gap-3">
               {upcomingExams.map(e => {
