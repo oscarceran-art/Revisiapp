@@ -138,3 +138,22 @@ textarea { scrollbar-width: none; -ms-overflow-style: none; }
 .prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; margin: 0.6em 0 0.3em; }
 .prose-chat code { background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 6px; }
 .prose-chat strong { font-weight: 700; }
+
+/* ── Mobile optimisations (<768px) ── */
+@media (max-width: 767px) {
+  .rounded-3xl { border-radius: 1rem !important; }
+  .rounded-2xl { border-radius: 0.75rem !important; }
+  [class*="shadow-"] {
+    box-shadow: none !important;
+  }
+  [class*="rounded-tr-md"] { border: none !important; }
+  [class*="rounded-tl-md"] { border: none !important; }
+  .streaming-bubble { box-shadow: none !important; border: none !important; }
+  .display, h1.display, h2.display { letter-spacing: -0.03em; }
+  [data-testid="floating-timer"] {
+    max-width: calc(100vw - 1.5rem) !important;
+  }
+  [data-testid="sidebar"] {
+    box-shadow: none !important;
+  }
+}

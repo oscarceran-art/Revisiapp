@@ -32,7 +32,7 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen pt-20 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="home-page">
+    <div className="min-h-screen pt-14 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="home-page">
       <div className="max-w-5xl mx-auto">
         <div className="mb-10 sm:mb-12 animate-fade-up">
           <div className="text-[11px] uppercase tracking-[0.22em] text-black/45 flex items-center gap-2">
@@ -53,7 +53,7 @@ export default function HomePage() {
                 </div>
                 <h2 className="display text-2xl md:text-3xl mt-1.5">Exam countdown</h2>
               </div>
-              <button onClick={() => navigate("/exams")} className="text-sm text-black/55 hover:text-black underline underline-offset-4">All exams →</button>
+              <button onClick={() => navigate("/exams")} className="text-sm text-black/55 hover:text-black underline underline-offset-4">All exams â†’</button>
             </div>
             <div className="grid sm:grid-cols-3 gap-3">
               {upcomingExams.map(e => {

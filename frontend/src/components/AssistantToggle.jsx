@@ -27,7 +27,7 @@ export default function AssistantToggle() {
   const running = status === "running";
 
   return (
-    <div className="fixed bottom-5 right-5 z-[2147483643] flex flex-col items-center gap-2">
+    <div className="fixed bottom-7 right-5 z-[2147483643] flex flex-col items-center gap-2">
       <button
         onClick={toggle}
         className="w-12 h-12 rounded-full bg-gradient-to-r from-pink-400 to-blue-500 text-white shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity active:scale-[0.95]"

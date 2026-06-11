@@ -43,7 +43,7 @@ export default function NotesGeneratorPage() {
   };
 
   return (
-    <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="notes-generator-page">
+    <div className="min-h-screen pt-14 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="notes-generator-page">
       <div className="max-w-2xl mx-auto">
         <button onClick={() => navigate(-1)} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Back
@@ -108,7 +108,7 @@ export default function NotesGeneratorPage() {
             data-testid="generate-notes-btn"
           >
             <Sparkle size={16} weight="fill" />
-            {generating ? "Writing notes…" : "Generate notes"}
+            {generating ? "Writing notesâ€¦" : "Generate notes"}
           </button>
         </div>
       </div>

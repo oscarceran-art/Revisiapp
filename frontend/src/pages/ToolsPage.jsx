@@ -29,7 +29,7 @@ export default function ToolsPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen pt-20 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="tools-page">
+    <div className="min-h-screen pt-14 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="tools-page">
       <div className="max-w-4xl mx-auto">
         <div className="mb-10">
           <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Study tools</div>

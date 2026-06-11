@@ -73,7 +73,7 @@ export default function WorksheetGeneratorPage() {
   };
 
   return (
-    <div className="min-h-screen pt-20 md:pt-14 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-generator-page">
+    <div className="min-h-screen pt-14 md:pt-14 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-generator-page">
       <div className="max-w-2xl mx-auto">
         <button onClick={() => navigate(-1)} className="text-sm text-black/50 hover:text-black flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Back
@@ -193,7 +193,7 @@ export default function WorksheetGeneratorPage() {
                 data-testid="generate-worksheet-btn"
               >
                 <Sparkle size={16} weight="fill" />
-                {generating ? "Generating…" : "Generate worksheet"}
+                {generating ? "Generatingâ€¦" : "Generate worksheet"}
               </button>
             </>
           ) : (
@@ -285,7 +285,7 @@ export default function WorksheetGeneratorPage() {
                 data-testid="import-pastpaper-btn"
               >
                 <UploadSimple size={16} weight="regular" />
-                {generating ? "Importing…" : "Import as worksheet"}
+                {generating ? "Importingâ€¦" : "Import as worksheet"}
               </button>
             </>
           )}

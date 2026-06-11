@@ -127,7 +127,7 @@ export default function FlashcardStudyPage() {
   const dueCount = cards.filter(c => new Date(c.next_review) <= new Date()).length;
 
   return (
-    <div className="min-h-screen pt-20 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="flashcard-study-page">
+    <div className="min-h-screen pt-14 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="flashcard-study-page">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => navigate("/flashcards")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5">
@@ -184,7 +184,7 @@ export default function FlashcardStudyPage() {
 
             <div
               onClick={() => setFlipped(!flipped)}
-              className="bg-white border border-black/10 rounded-3xl p-8 sm:p-12 min-h-[280px] flex items-center justify-center cursor-pointer hover:border-black/20 transition-colors select-none"
+              className="bg-white border border-black/10 rounded-3xl p-5 sm:p-12 min-h-[280px] flex items-center justify-center cursor-pointer hover:border-black/20 transition-colors select-none"
             >
               <div className="text-center">
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/30 mb-4">

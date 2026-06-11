@@ -87,13 +87,13 @@ export default function SubjectsPage() {
   };
 
   return (
-    <div className="min-h-screen pt-20 md:pt-14 px-4 sm:px-6 md:px-14 pb-16" data-testid="subjects-page">
+    <div className="min-h-screen pt-14 md:pt-14 px-4 sm:px-6 md:px-14 pb-16" data-testid="subjects-page">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-end justify-between mb-10">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Library</div>
             <h1 className="display text-4xl md:text-5xl mt-2">Subjects</h1>
-            <p className="text-black/55 mt-3 max-w-xl">Add subjects with notes — Revisia uses them as context for chats and worksheets.</p>
+            <p className="text-black/55 mt-3 max-w-xl">Add subjects with notes â€” Revisia uses them as context for chats and worksheets.</p>
           </div>
         </div>
 
@@ -152,7 +152,7 @@ export default function SubjectsPage() {
           {/* Editor */}
           <div>
             {selected ? (
-              <div className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8" data-testid="subject-editor">
+              <div className="bg-white border border-black/10 rounded-2xl sm:rounded-3xl p-3 sm:p-6 md:p-8" data-testid="subject-editor">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
                   <input
                     value={editing.name}
@@ -166,7 +166,7 @@ export default function SubjectsPage() {
                       <UploadSimple size={16} weight="regular" /> Upload notes
                     </button>
                     <button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] hover:opacity-90 transition-opacity" data-testid="save-subject-btn">
-                      <FloppyDisk size={16} weight="regular" /> {saving ? "Saving…" : "Save"}
+                      <FloppyDisk size={16} weight="regular" /> {saving ? "Savingâ€¦" : "Save"}
                     </button>
                     <button onClick={handleDelete} className="text-black/40 hover:text-red-600 p-2" data-testid="delete-subject-btn" aria-label="Delete subject">
                       <Trash size={18} weight="regular" />

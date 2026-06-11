@@ -26,11 +26,11 @@ export default function CheatSheetPage() {
     })();
   }, [id, navigate]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-black/40">Building your cheat sheet…</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-black/40">Building your cheat sheetâ€¦</div>;
   if (!cs) return null;
 
   return (
-    <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="cheat-sheet-page">
+    <div className="min-h-screen pt-14 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="cheat-sheet-page">
       <div className="max-w-3xl mx-auto">
         <button onClick={() => navigate(`/worksheets/${id}`)} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Back to paper
@@ -62,7 +62,7 @@ export default function CheatSheetPage() {
                 </div>
                 <ul className="space-y-2 text-[15px] leading-relaxed">
                   {cs.tips.map((t, i) => (
-                    <li key={i} className="flex gap-2.5"><span className="text-black/40">→</span><span>{t}</span></li>
+                    <li key={i} className="flex gap-2.5"><span className="text-black/40">â†’</span><span>{t}</span></li>
                   ))}
                 </ul>
               </div>

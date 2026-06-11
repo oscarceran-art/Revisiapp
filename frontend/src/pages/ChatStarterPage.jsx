@@ -8,7 +8,7 @@ import PersonaPicker from "@/components/PersonaPicker";
 
 const MODES = [
   { id: "solo", label: "Solo chat", icon: ChatCircle, desc: "Chat with one tutor or historical figure." },
-  { id: "group", label: "Group debate", icon: Users, desc: "Multiple figures, they reply in turn — agree, build, challenge." },
+  { id: "group", label: "Group debate", icon: Users, desc: "Multiple figures, they reply in turn â€” agree, build, challenge." },
   { id: "feynman", label: "Feynman mode", icon: Student, desc: "Teach a curious student. They ask questions until you've truly explained it." },
 ];
 
@@ -60,7 +60,7 @@ export default function ChatStarterPage() {
   const visiblePersonas = mode === "feynman" ? personas.filter(p => p.id === "curious-student") : personas.filter(p => p.id !== "curious-student");
 
   return (
-    <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="chat-starter-page">
+    <div className="min-h-screen pt-14 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="chat-starter-page">
       <div className="max-w-4xl mx-auto">
         <button onClick={() => navigate("/")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Home
@@ -125,7 +125,7 @@ export default function ChatStarterPage() {
           className="w-full sm:w-auto bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-7 py-3.5 flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity active:scale-[0.98] text-base font-bold"
           data-testid="start-chat-btn"
         >
-          <Sparkle size={16} weight="fill" /> {starting ? "Starting…" : "Start chat"}
+          <Sparkle size={16} weight="fill" /> {starting ? "Startingâ€¦" : "Start chat"}
         </button>
         {mode === "group" && selected.length < 2 && (
           <div className="text-xs text-black/45 mt-2">Pick at least 2 personas for a group chat.</div>

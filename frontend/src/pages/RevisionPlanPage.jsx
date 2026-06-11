@@ -90,7 +90,7 @@ export default function RevisionPlanPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-black/40">Loading…</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-black/40">Loadingâ€¦</div>;
 
   const totalTasks = plan?.days?.reduce((a, d) => a + d.tasks.length, 0) || 0;
   const doneTasks = plan?.days?.reduce((a, d) => a + d.tasks.filter(t => t.done).length, 0) || 0;
@@ -102,7 +102,7 @@ export default function RevisionPlanPage() {
 
   const prepareAll = async () => {
     if (!plan || busyTask) return;
-    if (!window.confirm(`Generate every pending note & worksheet in this plan? (${pendingGenerations} items — may take a minute)`)) return;
+    if (!window.confirm(`Generate every pending note & worksheet in this plan? (${pendingGenerations} items â€” may take a minute)`)) return;
     let workingPlan = plan;
     for (let di = 0; di < workingPlan.days.length; di++) {
       for (let ti = 0; ti < workingPlan.days[di].tasks.length; ti++) {
@@ -129,7 +129,7 @@ export default function RevisionPlanPage() {
   };
 
   return (
-    <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="revision-plan-page">
+    <div className="min-h-screen pt-14 md:pt-12 px-4 sm:px-6 md:px-10 pb-16" data-testid="revision-plan-page">
       <div className="max-w-3xl mx-auto">
         <button onClick={() => navigate("/exams")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-6">
           <ArrowLeft size={14} weight="bold" /> Exams
@@ -155,7 +155,7 @@ export default function RevisionPlanPage() {
               className="mt-6 bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-6 py-3 text-sm font-bold inline-flex items-center gap-2 hover:opacity-90 disabled:opacity-50 active:scale-[0.98] transition-opacity"
               data-testid="generate-plan-btn"
             >
-              <Sparkle size={14} weight="fill" /> {generating ? "Building plan…" : "Generate revision plan"}
+              <Sparkle size={14} weight="fill" /> {generating ? "Building planâ€¦" : "Generate revision plan"}
             </button>
           </div>
         )}
@@ -165,7 +165,7 @@ export default function RevisionPlanPage() {
             <div className="bg-white border border-black/10 rounded-3xl p-4 sm:p-5 mb-5 flex items-center gap-4 flex-wrap">
               <div className="flex-1 min-w-[200px]">
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/45">Progress</div>
-                <div className="text-lg font-extrabold tabular-nums mt-1" data-testid="plan-progress">{doneTasks}/{totalTasks} tasks · {pct}%</div>
+                <div className="text-lg font-extrabold tabular-nums mt-1" data-testid="plan-progress">{doneTasks}/{totalTasks} tasks Â· {pct}%</div>
                 <div className="mt-2 h-2 bg-black/10 rounded-full overflow-hidden">
                   <div className="h-full bg-black transition-[width] duration-300" style={{ width: `${pct}%` }} />
                 </div>
@@ -178,7 +178,7 @@ export default function RevisionPlanPage() {
                   data-testid="prepare-all-btn"
                   title="Auto-generate every pending note and worksheet across the plan"
                 >
-                  <MagicWand size={14} weight="fill" /> {busyTask ? "Preparing…" : `Prepare all (${pendingGenerations})`}
+                  <MagicWand size={14} weight="fill" /> {busyTask ? "Preparingâ€¦" : `Prepare all (${pendingGenerations})`}
                 </button>
               )}
               <button
@@ -188,7 +188,7 @@ export default function RevisionPlanPage() {
                 title="Rebuild plan from scratch"
                 data-testid="regenerate-plan-btn"
               >
-                {generating ? "Rebuilding…" : "Rebuild"}
+                {generating ? "Rebuildingâ€¦" : "Rebuild"}
               </button>
             </div>
 
@@ -247,7 +247,7 @@ export default function RevisionPlanPage() {
                               data-testid={`task-${di}-${ti}-gen-note`}
                               title={`Generate notes on: ${t.auto_note_topic}`}
                             >
-                              <MagicWand size={11} weight="fill" /> {busyTask === `${di}-${ti}-note` ? "Writing…" : "Generate notes"}
+                              <MagicWand size={11} weight="fill" /> {busyTask === `${di}-${ti}-note` ? "Writingâ€¦" : "Generate notes"}
                             </button>
                           )}
                           {!t.worksheet_id && t.auto_worksheet_topic && (
@@ -258,7 +258,7 @@ export default function RevisionPlanPage() {
                               data-testid={`task-${di}-${ti}-gen-worksheet`}
                               title={`Generate worksheet on: ${t.auto_worksheet_topic}`}
                             >
-                              <MagicWand size={11} weight="fill" /> {busyTask === `${di}-${ti}-worksheet` ? "Building…" : "Generate worksheet"}
+                              <MagicWand size={11} weight="fill" /> {busyTask === `${di}-${ti}-worksheet` ? "Buildingâ€¦" : "Generate worksheet"}
                             </button>
                           )}
                         </div>

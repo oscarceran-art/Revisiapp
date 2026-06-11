@@ -365,7 +365,7 @@ export default function ChatPage() {
     <div className="flex flex-col h-[100dvh] font-fraunces" data-testid="chat-page">
       {renderHeader()}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-10 py-4 sm:py-8 scroll-smooth" data-testid="chat-messages">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-10 py-4 sm:py-8 scroll-smooth overscroll-contain" data-testid="chat-messages">
         <div className={`${containerWidth} mx-auto transition-[max-width] duration-200`}>
           {messages.length === 0 && !sending && (
             <div className="text-center pt-12 sm:pt-16 animate-fade-up">

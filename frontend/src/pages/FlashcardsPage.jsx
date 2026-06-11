@@ -4,7 +4,7 @@ import { listDecks, createDeck, deleteDeck, getDueCount } from "@/lib/api";
 import { Plus, Trash, Notebook, Spinner } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
-const EMOJIS = ["🧬", "⚛️", "🌍", "📚", "➗", "🔬", "🧪", "🔭", "📝", "🎯", "🧠", "💡", "📊", "🔢", "🌿", "🧲", "💻", "🎨", "🏛️", "🌊"];
+const EMOJIS = ["ðŸ§¬", "âš›ï¸", "ðŸŒ", "ðŸ“š", "âž—", "ðŸ”¬", "ðŸ§ª", "ðŸ”­", "ðŸ“", "ðŸŽ¯", "ðŸ§ ", "ðŸ’¡", "ðŸ“Š", "ðŸ”¢", "ðŸŒ¿", "ðŸ§²", "ðŸ’»", "ðŸŽ¨", "ðŸ›ï¸", "ðŸŒŠ"];
 
 export default function FlashcardsPage() {
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ export default function FlashcardsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newIcon, setNewIcon] = useState("🧬");
+  const [newIcon, setNewIcon] = useState("ðŸ§¬");
 
   const load = async () => {
     try {
@@ -52,7 +52,7 @@ export default function FlashcardsPage() {
   );
 
   return (
-    <div className="min-h-screen pt-20 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="flashcards-page">
+    <div className="min-h-screen pt-14 md:pt-16 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="flashcards-page">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -120,7 +120,7 @@ export default function FlashcardsPage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center text-base">
-                  {deck.icon || "📚"}
+                  {deck.icon || "ðŸ“š"}
                 </div>
                 <button onClick={(e) => handleDelete(e, deck.id)} className="text-black/20 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100">
                   <Trash size={14} />

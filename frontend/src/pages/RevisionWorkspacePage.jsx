@@ -148,7 +148,7 @@ export default function RevisionWorkspacePage() {
   const showDiagramMode = mode === "diagram" || mode === "mixed";
 
   return (
-    <div className="min-h-screen pt-20 md:pt-14 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="workspace-page">
+    <div className="min-h-screen pt-14 md:pt-14 px-4 sm:px-6 md:px-10 lg:px-14 pb-16" data-testid="workspace-page">
       <div className="max-w-7xl mx-auto">
         <button onClick={() => navigate("/")} className="text-sm text-black/55 hover:text-black flex items-center gap-1.5 mb-4">
           <ArrowLeft size={14} weight="bold" /> Back
@@ -211,7 +211,7 @@ export default function RevisionWorkspacePage() {
                   <select value={imageModel} onChange={e => setImageModel(e.target.value)}
                     className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
                     {Object.entries(IMAGE_MODELS).map(([key, m]) => (
-                      <option key={key} value={key}>{m.label} — {m.desc}</option>
+                      <option key={key} value={key}>{m.label} â€” {m.desc}</option>
                     ))}
                   </select>
                 </div>
@@ -220,9 +220,9 @@ export default function RevisionWorkspacePage() {
                   <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}
                     className="w-full border border-black/15 rounded-2xl px-4 py-3 bg-white focus:outline-none focus:border-black">
                     <option value="auto">Auto</option>
-                    <option value="low">Low — fastest</option>
-                    <option value="medium">Medium — balanced</option>
-                    <option value="high">High — best quality</option>
+                    <option value="low">Low â€” fastest</option>
+                    <option value="medium">Medium â€” balanced</option>
+                    <option value="high">High â€” best quality</option>
                   </select>
                 </div>
                 <div>

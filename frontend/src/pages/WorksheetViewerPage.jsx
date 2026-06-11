@@ -79,7 +79,7 @@ function StudentAnswerField({ q, value, onChange, disabled }) {
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
       rows={rows}
-      placeholder="Your answer…"
+      placeholder="Your answerâ€¦"
       className="mt-3 w-full border-b-2 border-dotted border-black/25 bg-transparent focus:border-black focus:outline-none px-1 py-2 text-[15px] resize-none disabled:opacity-70"
       data-testid={`q-${q.number}-answer`}
     />
@@ -131,14 +131,14 @@ export default function WorksheetViewerPage() {
   };
 
   if (loading || !ws) {
-    return <div className="min-h-screen flex items-center justify-center text-black/40">Loading…</div>;
+    return <div className="min-h-screen flex items-center justify-center text-black/40">Loadingâ€¦</div>;
   }
 
   const mr = ws.marking_result;
   const isMarked = !!mr;
 
   return (
-    <div className="min-h-screen pt-20 md:pt-12 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-viewer">
+    <div className="min-h-screen pt-14 md:pt-12 px-4 sm:px-6 md:px-14 pb-16" data-testid="worksheet-viewer">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6 no-print">
           <button onClick={() => navigate("/")} className="text-sm text-black/50 hover:text-black flex items-center gap-1.5">
@@ -239,17 +239,17 @@ export default function WorksheetViewerPage() {
         {/* Exam paper */}
         <div className="bg-white border border-black/10 rounded-3xl shadow-[0_4px_40px_rgba(0,0,0,0.04)] overflow-hidden print-area" data-testid="worksheet-paper">
           {/* FRONT PAGE */}
-          <div className="p-10 md:p-14 border-b-2 border-black/10">
+          <div className="p-4 sm:p-6 md:p-10 lg:p-14 border-b-2 border-black/10">
             <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-2">{ws.subject_name || "Revision paper"}</div>
             <h1 className="display text-4xl md:text-5xl mb-2" data-testid="worksheet-title">{ws.title}</h1>
-            <div className="text-black/55 italic mb-10">Topic: {ws.topic} • Difficulty: {ws.difficulty}</div>
+            <div className="text-black/55 italic mb-10">Topic: {ws.topic} â€¢ Difficulty: {ws.difficulty}</div>
 
             <div className="grid md:grid-cols-2 gap-8">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-3">Instructions</div>
                 <ul className="text-[15px] leading-relaxed text-black/85 space-y-1.5 list-disc pl-5">
                   {(ws.instructions || "")
-                    .split(/(?:•|\n|\.\s+(?=[A-Z]))/)
+                    .split(/(?:â€¢|\n|\.\s+(?=[A-Z]))/)
                     .map(s => s.trim())
                     .filter(Boolean)
                     .map((line, i) => <li key={i}>{line.replace(/\.$/, "")}.</li>)}
@@ -258,17 +258,17 @@ export default function WorksheetViewerPage() {
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/50 mb-3">Information</div>
                 <ul className="text-[15px] leading-relaxed text-black/85 space-y-1">
-                  <li>• Total marks: <strong className="font-semibold">{ws.total_marks}</strong></li>
-                  <li>• Suggested time: <strong className="font-semibold">{ws.duration_minutes} minutes</strong></li>
-                  <li>• Questions: <strong className="font-semibold">{ws.questions.length}</strong></li>
-                  <li>• Marks are shown in brackets [ ]</li>
+                  <li>â€¢ Total marks: <strong className="font-semibold">{ws.total_marks}</strong></li>
+                  <li>â€¢ Suggested time: <strong className="font-semibold">{ws.duration_minutes} minutes</strong></li>
+                  <li>â€¢ Questions: <strong className="font-semibold">{ws.questions.length}</strong></li>
+                  <li>â€¢ Marks are shown in brackets [ ]</li>
                 </ul>
               </div>
             </div>
           </div>
 
           {/* QUESTIONS */}
-          <div className="p-8 md:p-14 space-y-10">
+          <div className="p-4 sm:p-6 md:p-10 lg:p-14 space-y-10">
             {ws.questions.map(q => {
               const fb = mr?.per_question?.find(p => p.number === q.number);
               return (
@@ -315,8 +315,8 @@ export default function WorksheetViewerPage() {
           </div>
 
           {/* FOOTER */}
-          <div className="px-8 md:px-14 py-8 border-t border-black/10 text-center text-black/40 text-sm italic">
-            — End of paper —
+          <div className="px-4 sm:px-6 md:px-10 lg:px-14 py-8 border-t border-black/10 text-center text-black/40 text-sm italic">
+            â€” End of paper â€”
           </div>
         </div>
 
@@ -330,7 +330,7 @@ export default function WorksheetViewerPage() {
               data-testid="mark-worksheet-btn"
             >
               <ListChecks size={18} weight="regular" />
-              {marking ? "Marking your paper…" : "Mark my paper"}
+              {marking ? "Marking your paperâ€¦" : "Mark my paper"}
             </button>
           </div>
         )}

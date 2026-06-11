@@ -405,7 +405,7 @@ export default function FloatingTimer() {
     <div
       ref={dragRef}
       style={{ ...positionStyle, fontFamily: "Nunito, system-ui, sans-serif" }}
-      className={`fixed z-[60] w-[280px] ${bgClass} rounded-3xl shadow-[0_24px_60px_rgba(0,0,0,0.35)] overflow-hidden select-none border ${borderC}`}
+      className={`fixed z-[60] w-[280px] max-w-[calc(100vw-1rem)] sm:max-w-none ${bgClass} rounded-3xl shadow-[0_24px_60px_rgba(0,0,0,0.35)] overflow-hidden select-none border ${borderC}`}
       data-testid="floating-timer"
     >
       <div onMouseDown={startDrag} onTouchStart={startDrag}
