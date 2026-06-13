@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Brain, Eye, EyeSlash, ArrowRight } from "@phosphor-icons/react";
+import { Eye, EyeSlash } from "@phosphor-icons/react";
+import "./LoginPage.css";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -22,92 +23,38 @@ export default function LoginPage() {
 
     await new Promise((r) => setTimeout(r, 320));
 
-    const result = await login(username, password); // ← FIXED: added await (login is async)
+    const result = await login(username, password);
     setLoading(false);
 
     if (result.ok) {
-      navigate(result.user?.is_admin ? "/admin" : from, { replace: true }); // ← FIXED: admins go to /admin
+      navigate(result.user?.is_admin ? "/admin" : from, { replace: true });
     } else {
       setError(result.error);
     }
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ background: "#FAF8F5" }}
-    >
-      {/* Subtle decorative blob */}
-      <div
-        className="pointer-events-none fixed inset-0 overflow-hidden"
-        aria-hidden="true"
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: "-10%",
-            right: "-8%",
-            width: "520px",
-            height: "520px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(0,0,0,0.04) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "-12%",
-            left: "-6%",
-            width: "400px",
-            height: "400px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(0,0,0,0.03) 0%, transparent 70%)",
-          }}
-        />
-      </div>
-
-      <div className="w-full max-w-sm page-fade">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-10">
-          <div className="w-9 h-9 bg-black rounded-2xl flex items-center justify-center">
-            <Brain size={18} color="white" weight="fill" />
-          </div>
-          <span
-            className="text-[22px] font-black tracking-tight"
-            style={{ fontFamily: "Nunito, sans-serif" }}
-          >
-            Revisiapp
-          </span>
+    <div className="login-bg">
+      <div className="login-wrapper page-fade">
+        {/* Top badge */}
+        <div className="login-badge">
+          <img
+            src="https://api.builder.io/api/v1/image/assets/TEMP/20994fdd399eaf8a8f5a6c8e1a0b87edd311669d?width=64"
+            alt="Revisiapp logo"
+            className="login-badge-logo"
+          />
+          <span className="login-badge-text">Revisiapp Login</span>
         </div>
 
         {/* Card */}
-        <div
-          className="bg-white border rounded-3xl p-8"
-          style={{ borderColor: "hsl(30 15% 88%)" }}
-        >
-          <h1
-            className="text-[26px] font-extrabold tracking-tight mb-1"
-            style={{ fontFamily: "Nunito, sans-serif" }}
-          >
-            Welcome back
-          </h1>
-          <p
-            className="text-[14px] mb-7"
-            style={{ color: "rgba(0,0,0,0.45)" }}
-          >
-            Sign in to continue revising
-          </p>
+        <div className="login-card">
+          <h1 className="login-title">Welcome back.</h1>
+          <p className="login-subtitle">Lets pick up right where you left off.</p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="login-form">
             {/* Username */}
-            <div>
-              <label
-                htmlFor="username"
-                className="block text-[12px] font-bold uppercase tracking-[0.18em] mb-2"
-                style={{ color: "rgba(0,0,0,0.55)" }}
-              >
+            <div className="login-field">
+              <label htmlFor="username" className="login-label">
                 Username
               </label>
               <input
@@ -120,34 +67,17 @@ export default function LoginPage() {
                   setUsername(e.target.value);
                   setError("");
                 }}
-                placeholder="your name"
-                className="w-full px-4 py-3 rounded-2xl text-[15px] outline-none transition-all"
-                style={{
-                  background: "hsl(38 25% 93%)",
-                  border: "1.5px solid transparent",
-                  fontFamily: "Nunito, sans-serif",
-                }}
-                onFocus={(e) => {
-                  e.target.style.border = "1.5px solid rgba(0,0,0,0.35)";
-                  e.target.style.background = "white";
-                }}
-                onBlur={(e) => {
-                  e.target.style.border = "1.5px solid transparent";
-                  e.target.style.background = "hsl(38 25% 93%)";
-                }}
+                placeholder=""
+                className="login-input"
               />
             </div>
 
             {/* Password */}
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-[12px] font-bold uppercase tracking-[0.18em] mb-2"
-                style={{ color: "rgba(0,0,0,0.55)" }}
-              >
+            <div className="login-field">
+              <label htmlFor="password" className="login-label">
                 Password
               </label>
-              <div className="relative">
+              <div className="login-input-wrapper">
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -157,84 +87,63 @@ export default function LoginPage() {
                     setPassword(e.target.value);
                     setError("");
                   }}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-12 rounded-2xl text-[15px] outline-none transition-all"
-                  style={{
-                    background: "hsl(38 25% 93%)",
-                    border: "1.5px solid transparent",
-                    fontFamily: "Nunito, sans-serif",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.border = "1.5px solid rgba(0,0,0,0.35)";
-                    e.target.style.background = "white";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.border = "1.5px solid transparent";
-                    e.target.style.background = "hsl(38 25% 93%)";
-                  }}
+                  placeholder=""
+                  className="login-input login-input--password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-black/[0.06] transition-colors"
-                  style={{ color: "rgba(0,0,0,0.4)" }}
+                  className="login-eye-btn"
                   tabIndex={-1}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <EyeSlash size={18} weight="regular" />
+                    <EyeSlash size={20} weight="regular" />
                   ) : (
-                    <Eye size={18} weight="regular" />
+                    <Eye size={20} weight="regular" />
                   )}
                 </button>
               </div>
             </div>
 
             {/* Error */}
-            {error && (
-              <div
-                className="text-[13px] px-4 py-2.5 rounded-2xl"
-                style={{
-                  background: "rgba(220,38,38,0.07)",
-                  color: "rgb(185,28,28)",
-                  fontFamily: "Nunito, sans-serif",
-                }}
-              >
-                {error}
-              </div>
-            )}
+            {error && <div className="login-error">{error}</div>}
 
             {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-pink-400 to-blue-500 text-white rounded-2xl px-5 py-3.5 text-[15px] font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 mt-2"
-              style={{ fontFamily: "Nunito, sans-serif" }}
+              className="login-btn"
             >
               {loading ? (
                 <>
-                  <span
-                    className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"
-                    aria-hidden="true"
-                  />
+                  <span className="login-spinner" aria-hidden="true" />
                   Signing in…
                 </>
               ) : (
                 <>
-                  Sign in
-                  <ArrowRight size={17} weight="bold" />
+                  Login
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 18 18"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M8 6L11 9L8 12M18 9C18 4.02944 13.9706 0 9 0C4.02944 0 0 4.02944 0 9C0 13.9706 4.02944 18 9 18C13.9706 18 18 13.9706 18 9Z"
+                      stroke="black"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </>
               )}
             </button>
           </form>
         </div>
-
-        <p
-          className="text-center text-[12px] mt-6"
-          style={{ color: "rgba(0,0,0,0.35)", fontFamily: "Nunito, sans-serif" }}
-        >
-          Enter any username &amp; a password (4+ chars) to get started
-        </p>
       </div>
     </div>
   );
