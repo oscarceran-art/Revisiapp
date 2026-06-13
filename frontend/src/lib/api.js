@@ -17,13 +17,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 responses — clear auth and redirect to login
+// Handle 401 responses — clear stale auth and redirect if we had a token
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("revisiapp_auth");
-      window.location.href = "/login";
+      const raw = localStorage.getItem("revisiapp_auth");
+      if (raw) {
+        localStorage.removeItem("revisiapp_auth");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }
