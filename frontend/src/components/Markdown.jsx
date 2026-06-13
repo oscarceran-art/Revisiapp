@@ -25,7 +25,7 @@ export default function Markdown({ text }) {
   const mathBlocks = [];
   let processed = text;
 
-  // Block math $$...$$
+  // Block math $$...$$ and \[...\]
   processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {
     const idx = mathBlocks.length;
     try {
@@ -37,8 +37,30 @@ export default function Markdown({ text }) {
     return `\nMATHBLOCK${idx}\n`;
   });
 
-  // Inline math $...$
+  processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, expr) => {
+    const idx = mathBlocks.length;
+    try {
+      const html = katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false });
+      mathBlocks.push(html);
+    } catch {
+      mathBlocks.push(`<div class="text-red-500 text-xs">[Math error: ${expr.trim()}]</div>`);
+    }
+    return `\nMATHBLOCK${idx}\n`;
+  });
+
+  // Inline math $...$ and \(...\)
   processed = processed.replace(/\$([^\s$][^$]*?[^\s$])\$/g, (_, expr) => {
+    const idx = mathBlocks.length;
+    try {
+      const html = katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false });
+      mathBlocks.push(html);
+    } catch {
+      mathBlocks.push(`<span class="text-red-500 text-xs">[Math error: ${expr.trim()}]</span>`);
+    }
+    return `MATHINLINE${idx}`;
+  });
+
+  processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (_, expr) => {
     const idx = mathBlocks.length;
     try {
       const html = katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false });
