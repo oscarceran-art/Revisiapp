@@ -57,20 +57,16 @@ async def _charge_tokens(user: dict, resp, estimated_tokens: int = 0):
 
 
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-FALLBACK_AI_MODEL = 'gpt-5.4-nano'
+FALLBACK_AI_MODEL = 'gpt-4o-mini'
 DEFAULT_AI_MODEL = os.environ.get('DEFAULT_AI_MODEL', FALLBACK_AI_MODEL)
 AI_MODELS = {
-    "gpt-5.4-nano": {
-        "label": "GPT-5.4 nano",
-        "description": "Fastest and cheapest, closest to a Haiku-style default.",
+    "gpt-4o-mini": {
+        "label": "Luna",
+        "description": "Fast and cost-effective — great for most revision tasks.",
     },
-    "gpt-5.4-mini": {
-        "label": "GPT-5.4 mini",
-        "description": "Stronger but still cost-conscious.",
-    },
-    "gpt-5.4": {
-        "label": "GPT-5.4",
-        "description": "Best quality option for harder revision tasks.",
+    "gpt-4o": {
+        "label": "Terra",
+        "description": "More capable — best for complex questions and detailed explanations.",
     },
 }
 if DEFAULT_AI_MODEL not in AI_MODELS:
