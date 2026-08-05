@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, Cards } from "@phosphor-icons/react";
+import { ChatCircle, FileText, List, X, Plus, BookBookmark, CaretDown, CaretRight, Stack, Trash, Notebook, SidebarSimple, CalendarBlank, Timer, Bell, SignOut, ShieldCheck, Cards, Trophy } from "@phosphor-icons/react";
 import { useState, useEffect, useMemo } from "react";
 import { useSidebarData } from "@/context/SidebarContext";
 import { useTimer } from "@/context/TimerContext";
@@ -271,6 +271,7 @@ export default function Layout() {
               { to: "/workspace", icon: Stack, label: "Workspace" },
               { to: "/flashcards", icon: Cards, label: "Flashcards" },
               { to: "/subjects", icon: BookBookmark, label: "Subjects" },
+              { to: "/arena", icon: Trophy, label: "Arena" },
             ].map(it => {
               const Icon = it.icon;
               const active = location.pathname === it.to;
@@ -353,11 +354,21 @@ export default function Layout() {
                   }
                 >
                   <Cards size={16} weight="regular" />
-                  <span className="text-[14px] font-semibold">Flashcards</span>
-                </NavLink>
-                <NavLink
-                 to="/subjects"
-                 data-testid="sidebar-manage-subjects"
+                   <span className="text-[14px] font-semibold">Flashcards</span>
+                 </NavLink>
+                 <NavLink
+                  to="/arena"
+                  data-testid="sidebar-arena-link"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors mb-1 ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
+                  }
+                >
+                  <Trophy size={16} weight="fill" />
+                   <span className="text-[14px] font-semibold">Study Arena</span>
+                 </NavLink>
+                 <NavLink
+                  to="/subjects"
+                  data-testid="sidebar-manage-subjects"
                  className={({ isActive }) =>
                    `flex items-center gap-2.5 px-3 py-2.5 rounded-2xl transition-colors ${isActive ? "bg-black text-white" : "hover:bg-black/[0.04] text-black/80"}`
                  }
