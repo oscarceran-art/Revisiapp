@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSidebarData } from "@/context/SidebarContext";
-import { ChatCircle, FileText, BookBookmark, Sparkle, Notebook, CalendarBlank, Plus } from "@phosphor-icons/react";
+import { ChatCircle, FileText, BookBookmark, Sparkle, Notebook, CalendarBlank, Plus, Trophy, Flame } from "@phosphor-icons/react";
+import { getGamificationState } from "@/lib/api";
 
 function daysBetween(targetIso) {
   if (!targetIso) return null;
@@ -42,6 +43,27 @@ export default function HomePage() {
             What would you like<br className="hidden sm:inline" />{" "}to <span className="gradient-fade">revise</span> today?
           </h1>
         </div>
+
+        {/* Gamification summary */}
+        {progress && (
+          <button onClick={() => navigate("/arena")} className="mb-10 w-full text-left rounded-3xl p-6 bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 text-white shadow-sm hover:scale-[1.01] transition-transform animate-fade-up" data-testid="home-gamification-card">
+            <div className="flex items-center gap-6 flex-wrap">
+              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                <Trophy size={34} weight="fill" />
+              </div>
+              <div className="flex-1 min-w-[140px]">
+                <div className="text-xs uppercase tracking-widest opacity-80">Level {progress.level} · {progress.level_title}</div>
+                <div className="text-2xl font-extrabold mt-0.5">{progress.total_xp.toLocaleString()} XP</div>
+                <div className="mt-1 h-2 rounded-full bg-white/25 overflow-hidden max-w-xs">
+                  <div className="h-full bg-white" style={{ width: `${Math.round((progress.level_progress||0)*100)}%` }} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-semibold bg-white/15 px-3 py-2 rounded-full">
+                <Flame size={16} weight="fill" className="text-orange-200" /> {progress.streak} day streak
+              </div>
+            </div>
+          </button>
+        )}
 
         {/* Upcoming exams countdown */}
         {upcomingExams.length > 0 && (
