@@ -57,7 +57,7 @@ export default function usePageAgent() {
 
       const agent = new PageAgent({
         baseURL: `${BACKEND_URL}/api/ai`,
-        model: "gpt-5.4-nano",
+        model: "gpt-5.6-luna",
         apiKey: "dummy",
         language: "en-US",
         maxSteps: 6,
