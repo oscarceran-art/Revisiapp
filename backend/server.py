@@ -1,6 +1,8 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Header
 from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
@@ -2985,13 +2987,22 @@ async def ai_chat_completions(body: dict, authorization: Optional[str] = Header(
 # ---------- MOUNT ROUTER + MIDDLEWARE ----------
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class CORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+            "Access-Control-Max-Age": "86400",
+        }
+        if request.method == "OPTIONS":
+            return Response(status_code=200, headers=cors_headers)
+        response = await call_next(request)
+        for key, value in cors_headers.items():
+            response.headers[key] = value
+        return response
+
+app.add_middleware(CORSMiddleware)
 
 
 # ---------- STARTUP / SHUTDOWN ----------
