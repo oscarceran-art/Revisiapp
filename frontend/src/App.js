@@ -24,6 +24,7 @@ import AdminPage from "@/pages/AdminPage";
 import FlashcardsPage from "@/pages/FlashcardsPage";
 import FlashcardStudyPage from "@/pages/FlashcardStudyPage";
 import ToolsPage from "@/pages/ToolsPage";
+import ArenaPage from "@/pages/ArenaPage";
 import RevisionWorkspacePage from "@/pages/RevisionWorkspacePage";
 
 function RequireAuth({ children }) {
@@ -64,6 +65,7 @@ function AppRoutes() {
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/flashcards/:deckId" element={<FlashcardStudyPage />} />
           <Route path="/tools" element={<ToolsPage />} />
+      <Route path="/arena" element={<ArenaPage />} />
           <Route path="/workspace" element={<RevisionWorkspacePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
