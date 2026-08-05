@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useTimer } from "@/context/TimerContext";
+import { createFocusSession } from "@/lib/api";
+import { toast } from "sonner";
 import {
   Play, Pause, ArrowClockwise, X, Minus, Hourglass, Timer, BatteryCharging,
   GearSix, ArrowsOut, ArrowsIn, SpeakerHigh, SpeakerSlash, Sun, Moon,
@@ -163,6 +165,30 @@ function RingFace({ ms, totalMs, size = 200, stroke = 8, light, accent }) {
 function FlipCard({ value, width, height, light }) {
   const [prev, setPrev] = useState(value);
   const [animKey, setAnimKey] = useState(0);
+  const logFocus = useCallback(async (durationMs) => {
+    const minutes = Math.max(0, Math.round(durationMs / 60000));
+    if (minutes < 1) return;
+    try {
+      const startedAt = new Date(Date.now() - durationMs).toISOString();
+      const endedAt = new Date().toISOString();
+      const res = await createFocusSession({ started_at: startedAt, ended_at: endedAt, duration_ms: Math.round(durationMs), tag: "study" });
+      const g = res?.gamification;
+      if (g?.awarded) {
+        toast.success(`+${minutes} XP · Focus session logged`, {
+          description: g.leveled_up ? `🎉 Level up — now Level ${g.state.level} ${g.state.level_title}` : `${g.state.total_xp} XP total`,
+        });
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleReset = () => {
+    let studied = 0;
+    if (state.mode === "stopwatch") studied = state.elapsedMs;
+    else studied = Math.max(0, state.durationSeconds * 1000 - state.remainingMs);
+    if (studied >= 60000) logFocus(studied);
+    reset();
+  };
+
   useEffect(() => {
     if (value !== prev) {
       setAnimKey(k => k + 1);
@@ -347,7 +373,7 @@ export default function FloatingTimer() {
         )}
 
         <div className="relative px-6 py-8 flex items-center justify-center gap-4">
-          <button onClick={reset} className={`w-14 h-14 rounded-full border ${borderC} ${hoverBg} flex items-center justify-center ${subTxt}`} data-testid="fullscreen-reset-btn" aria-label="Reset">
+          <button onClick={handleReset} className={`w-14 h-14 rounded-full border ${borderC} ${hoverBg} flex items-center justify-center ${subTxt}`} data-testid="fullscreen-reset-btn" aria-label="Reset">
             <ArrowClockwise size={20} />
           </button>
           {state.running ? (
@@ -449,7 +475,7 @@ export default function FloatingTimer() {
       )}
 
       <div className={`px-4 py-3 flex items-center justify-center gap-2 ${light ? "bg-black/[0.03]" : "bg-white/[0.04]"}`}>
-        <button onClick={reset} className={`p-2 rounded-full ${hoverBg} ${subTxt}`} aria-label="Reset" data-testid="timer-reset-btn">
+        <button onClick={handleReset} className={`p-2 rounded-full ${hoverBg} ${subTxt}`} aria-label="Reset" data-testid="timer-reset-btn">
           <ArrowClockwise size={16} />
         </button>
         {state.running ? (
