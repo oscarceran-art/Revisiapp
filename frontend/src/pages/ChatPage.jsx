@@ -24,9 +24,8 @@ const AI_MODES = [
 ];
 
 const MODEL_OPTIONS = [
-  { id: "gpt-5.4-nano", label: "GPT-5.4 nano", desc: "Fastest and cheapest." },
-  { id: "gpt-5.4-mini", label: "GPT-5.4 mini", desc: "Better answers, still cheap." },
-  { id: "gpt-5.4", label: "GPT-5.4", desc: "Strongest for hard tasks." },
+  { id: "gpt-5.6-luna", label: "Luna", desc: "Fast and cost-effective — great for most revision tasks." },
+  { id: "gpt-5.6-terra", label: "Terra", desc: "More capable — best for complex questions and detailed explanations." },
 ];
 
 const CONTEXT_OPTIONS = [
@@ -38,7 +37,7 @@ const CONTEXT_OPTIONS = [
   { value: 0, label: "Whole chat", desc: "Full context (costliest)" },
 ];
 
-const DEFAULT_SETTINGS = { model: "gpt-5.4-nano", ai_mode: "normal", strictness: 5, context_window: 0 };
+const DEFAULT_SETTINGS = { model: "gpt-5.6-luna", ai_mode: "normal", strictness: 5, context_window: 0 };
 
 export default function ChatPage() {
   const { sessionId } = useParams();
@@ -489,7 +488,7 @@ export default function ChatPage() {
           </div>
           <div className="flex items-center gap-2 mt-1.5 px-1 text-[10px] uppercase tracking-[0.18em] text-black/35">
             <span data-testid="settings-summary">
-              {MODEL_OPTIONS.find(m => m.id === settings.model)?.label || "GPT-5.4 nano"} - {AI_MODES.find(m => m.id === settings.ai_mode)?.label || "Normal"} - Strictness {settings.strictness}/10 - {CONTEXT_OPTIONS.find(c => c.value === settings.context_window)?.label || "Whole chat"}
+              {MODEL_OPTIONS.find(m => m.id === settings.model)?.label || "Luna"} - {AI_MODES.find(m => m.id === settings.ai_mode)?.label || "Normal"} - Strictness {settings.strictness}/10 - {CONTEXT_OPTIONS.find(c => c.value === settings.context_window)?.label || "Whole chat"}
             </span>
           </div>
         </div>
