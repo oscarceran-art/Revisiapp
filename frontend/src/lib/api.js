@@ -196,3 +196,10 @@ export const listBlurtingExercises = () => api.get("/workspace/blurting").then(r
 export const listDiagramExercises = () => api.get("/workspace/diagrams").then(r => r.data);
 export const deleteBlurtingExercise = (id) => api.delete(`/workspace/blurting/${id}`).then(r => r.data);
 export const deleteDiagramExercise = (id) => api.delete(`/workspace/diagrams/${id}`).then(r => r.data);
+
+// ===================== Gamification =====================
+export const getGamificationState = () => api.get("/gamification/state").then(r => r.data);
+export const createFocusSession = (data) => api.post("/gamification/focus-sessions", data).then(r => r.data);
+export const listFocusSessions = () => api.get("/gamification/focus-sessions").then(r => r.data);
+export const claimQuest = (quest_id) => api.post("/gamification/quests/claim", { quest_id }).then(r => r.data);
+export const getLeaderboard = () => api.get("/gamification/leaderboard").then(r => r.data);
